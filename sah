@@ -1,0 +1,71 @@
+CONFIG_FILE = "config.json"
+
+def select_video_folder():
+    folder = filedialog.askdirectory(title="Chọn thư mục video")
+    if folder:
+        video_folder_var.set(folder)
+
+def select_srt_folder():
+    folder = filedialog.askdirectory(title="Chọn thư mục SRT")
+    if folder:
+        srt_folder_var.set(folder)
+
+def save_input():
+    # Lưu dữ liệu textbox và hai đường dẫn vào file config.json
+    content = input_text.get("1.0", tk.END).strip()
+    data = {
+        "video_folder": video_folder_var.get(),
+        "srt_folder": srt_folder_var.get(),
+        "lines": content.splitlines()
+    }
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print("Đã lưu dữ liệu vào", CONFIG_FILE)
+    messagebox.showinfo("Thông báo", "Lưu dữ liệu thành công!")
+
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            video_folder_var.set(data.get("video_folder", ""))
+            srt_folder_var.set(data.get("srt_folder", ""))
+            lines = data.get("lines", [])
+            input_text.delete("1.0", tk.END)
+            if lines:
+                input_text.insert(tk.END, "\n".join(lines))
+
+def start_action():
+    print("Bắt đầu...")
+
+def stop_action():
+    print("Dừng lại...")
+
+root = tk.Tk()
+root.title("AutoVoice GUI")
+
+# Video folder
+video_folder_var = tk.StringVar()
+tk.Label(root, text="Thư mục Video:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+tk.Entry(root, textvariable=video_folder_var, width=40, state="readonly").grid(row=0, column=1, padx=5, pady=5)
+tk.Button(root, text="Chọn...", command=select_video_folder).grid(row=0, column=2, padx=5, pady=5)
+
+# SRT folder
+srt_folder_var = tk.StringVar()
+tk.Label(root, text="Thư mục SRT:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+tk.Entry(root, textvariable=srt_folder_var, width=40, state="readonly").grid(row=1, column=1, padx=5, pady=5)
+tk.Button(root, text="Chọn...", command=select_srt_folder).grid(row=1, column=2, padx=5, pady=5)
+
+# Multiline input textbox with vertical scroll
+tk.Label(root, text="Nhập nội dung:").grid(row=2, column=0, sticky="nw", padx=5, pady=5)
+input_text = scrolledtext.ScrolledText(root, width=50, height=10)
+input_text.grid(row=2, column=1, columnspan=2, padx=5, pady=5, sticky="w")
+
+# Buttons
+tk.Button(root, text="Lưu", width=10, command=save_input).grid(row=3, column=0, padx=5, pady=10)
+tk.Button(root, text="Start", width=10, command=start_action).grid(row=3, column=1, padx=5, pady=10, sticky="w")
+tk.Button(root, text="Stop", width=10, command=stop_action).grid(row=3, column=2, padx=5, pady=10, sticky="w")
+
+# Load config khi mở tool
+load_config()
+
+root.mainloop()
