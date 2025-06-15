@@ -1,4 +1,1220 @@
+def find_and_click_element_with_text(window, text_to_find):
+    # Print all controls to help with debugging
+    print("Listing all controls in the application:")
+    window.print_control_identifiers()
+    
+    # Get all UI elements (not just buttons)
+    all_elements = window.descendants()
+    
+    print(f"Looking for any element containing text: '{text_to_find}'")
+    found = False
+    
+    # Check each element for the text
+    for element in all_elements:
+        try:
+            element_text = element.window_text()
+            control_type = element.control_type() if hasattr(element, 'control_type') else "Unknown"
+            
+            if element_text:  # Only print elements that have text
+                print(f"Found element: '{element_text}' (Type: {control_type})")
+            
+            if text_to_find.lower() in element_text.lower():
+                print(f"Found matching element: '{element_text}' (Type: {control_type})")
+                
+                # Try to click the element
+                try:
+                    element.click_input()  # Using click_input is sometimes more reliable
+                    found = True
+                    print(f"Successfully clicked the '{element_text}' element")
+                    break
+                except Exception as e:
+                    print(f"Could not click element: {e}")
+        except Exception as e:
+            pass  # Skip elements that cause errors
+    
+    if not found:
+        print(f"No element found containing text: '{text_to_find}'")
+
+# Function to find an input field near specified text, click it and paste text
+def find_click_and_paste_into_input(window, search_text, input_text):
+    print(f"Looking for input field near text: '{search_text}'")
+    
+    # Print all controls to help with debugging
+    window.print_control_identifiers()
+    
+    # Get all UI elements
+    all_elements = window.descendants()
+    
+    # First find the element with the search text
+    target_element = None
+    for element in all_elements:
+        try:
+            element_text = element.window_text()
+            if search_text.lower() in element_text.lower():
+                print(f"Found element with text: '{element_text}'")
+                target_element = element
+                break
+        except Exception:
+            pass
+    
+    if not target_element:
+        print(f"Could not find element with text: '{search_text}'")
+        return False
+    
+    # Now look for input fields (Edit controls) near the found element
+    input_fields = window.descendants(control_type="Edit")
+    
+    if input_fields:
+        # Try the first input field found
+        try:
+            # First click on the input field to focus it
+            print("Clicking on input field...")
+            input_fields[0].click_input()
+            
+            # Wait a moment for the field to be focused
+            time.sleep(0.5)
+            
+            # Put text in clipboard
+            pyperclip.copy(input_text)
+            
+            # Clear existing text with Ctrl+A and Delete
+            send_keys("^a{DELETE}")
+            
+            # Paste the text with Ctrl+V
+            send_keys("^v")
+            
+            print(f"Clicked input field and pasted '{input_text}'")
+            return True
+        except Exception as e:
+            print(f"Error interacting with input field: {e}")
+    else:
+        print("No input fields found")
+    
+    return False
+def select_file_in_dialog(file_path, dialog_title="Open"):
+    """
+    Chọn file trong file dialog bằng cách nhập đường dẫn và nhấn Enter.
+    """
+
+
+    time.sleep(2)
+
+    try:
+        dialog = Desktop(backend="win32").window(title_re=f".*{dialog_title}.*")
+        dialog.wait('visible', timeout=15)
+        print(f"Đã tìm thấy dialog: {dialog.window_text()}")
+
+        # Tìm ô nhập đường dẫn file
+        edit = dialog.child_window(class_name="Edit")
+        edit.set_edit_text(file_path)
+        print(f"Đã nhập đường dẫn: {file_path}")
+
+        # Gửi phím Enter để xác nhận chọn file
+        send_keys('{ENTER}')
+        print("Đã gửi phím Enter")
+        return True
+    except Exception as e:
+        print(f"Lỗi khi chọn file trong dialog: {e}")
+        return False
+
+def enter_text_for_video_path(window, input_text):
+    dismiss_update_dialog(app)
+
+
+    print("Tìm label 'Đường dẫn video' và nút 'Chọn' cùng hàng...")
+
+    try:
+        # Tìm label
+        label = window.child_window(title="Đường dẫn video", control_type="Text")
+        label_rect = label.rectangle()
+
+        # Tìm tất cả button
+        buttons = window.descendants(control_type="Button")
+        for btn in buttons:
+            btn_text = btn.window_text().lower()
+            btn_rect = btn.rectangle()
+            # Kiểm tra nút nằm cùng hàng (chênh lệch top nhỏ) và bên phải label
+            if ("chọn" in btn_text or "browse" in btn_text or "..." in btn_text) \
+                and abs(btn_rect.top - label_rect.top) < 20 \
+                and btn_rect.left > label_rect.right:
+                print(f"Đã tìm thấy nút: '{btn.window_text()}'")
+                btn.click_input()
+                time.sleep(1)  # Đợi file dialog hiện lên
+
+                # Gọi hàm chọn file trong dialog
+                if select_file_in_dialog(input_text, dialog_title="Open") or select_file_in_dialog(input_text, dialog_title="Mở"):
+                    print("Đã chọn file thành công qua file dialog")
+                    return True
+                else:
+                    print("Không chọn được file qua file dialog")
+                    return False
+
+        print("Không tìm thấy nút 'Chọn' cùng hàng với label 'Đường dẫn video'")
+        return False
+    except Exception as e:
+        print(f"Lỗi khi thao tác với nút 'Chọn': {e}")
+        return False
+def enter_text_for_srt_path(window, srt_path):
+    dismiss_update_dialog(app)
+    """
+    Click vào nút 'Chọn' ở cùng hàng với label SRT, sau đó chọn file SRT qua file dialog.
+    """
+
+    print("Tìm label 'SRT' và nút 'Chọn' cùng hàng...")
+
+    try:
+        # Tìm label SRT
+        label = window.child_window(title_re=".*SRT.*", control_type="Text")
+        label_rect = label.rectangle()
+
+        # Tìm tất cả button
+        buttons = window.descendants(control_type="Button")
+        for btn in buttons:
+            btn_text = btn.window_text().lower()
+            btn_rect = btn.rectangle()
+            if ("chọn" in btn_text or "browse" in btn_text or "..." in btn_text) \
+                and abs(btn_rect.top - label_rect.top) < 20 \
+                and btn_rect.left > label_rect.right:
+                print(f"Đã tìm thấy nút: '{btn.window_text()}'")
+                btn.click_input()
+                time.sleep(2)  # Đợi file dialog hiện lên
+
+                # Gọi hàm chọn file trong dialog
+                if select_file_in_dialog(srt_path, dialog_title="Open") or select_file_in_dialog(srt_path, dialog_title="Mở"):
+                    print("Đã chọn file SRT thành công qua file dialog")
+                    return True
+                else:
+                    print("Không chọn được file SRT qua file dialog")
+                    return False
+
+        print("Không tìm thấy nút 'Chọn' cùng hàng với label SRT")
+        return False
+    except Exception as e:
+        print(f"Lỗi khi thao tác với nút 'Chọn' SRT: {e}")
+        return False
+def select_voice_from_combobox(window, voice_option):
+    print(f"Looking for the combobox associated with 'Giọng đọc' to select '{voice_option}'")
+    
+    # Print all controls to help with debugging
+    window.print_control_identifiers()
+    
+    try:
+        # First find the label element
+        label = window.child_window(title="Giọng đọc", control_type="Text")
+        print("Found the 'Giọng đọc' label")
+        
+        # Get label's rectangle
+        label_rect = label.rectangle()
+        
+        # Find all combo box controls in the window
+        combo_boxes = window.descendants(control_type="ComboBox")
+        
+        # Look for combo box controls that are positioned near the label
+        for combo in combo_boxes:
+            combo_rect = combo.rectangle()
+            
+            # Check if combo box is to the right or below the label
+            if (combo_rect.left >= label_rect.left and 
+                abs(combo_rect.top - label_rect.top) < 50):  # within 50 pixels vertically
+                
+                print(f"Found combobox near 'Giọng đọc' label")
+                
+                # Click the combo box to open the dropdown
+                combo.click_input()
+                time.sleep(1)  # Wait for dropdown to appear
+                
+                # Now try to find and click the specified option
+                try:
+                    # Find all list items in the dropdown
+                    dropdown_items = window.descendants(control_type="ListItem")
+                    
+                    for item in dropdown_items:
+                        try:
+                            item_text = item.window_text()
+                            print(f"Dropdown option: '{item_text}'")
+                            if voice_option.lower() in item_text.lower():
+                                print(f"Found matching option '{item_text}' in dropdown")
+                                item.click_input()
+                                print(f"Selected '{item_text}' from the combobox")
+                                return True
+                        except Exception as e:
+                            pass
+                    
+                    print(f"Could not find option '{voice_option}' in the dropdown")
+                    # Click somewhere else to close the dropdown without making a selection
+                    label.click_input()
+                except Exception as e:
+                    print(f"Error while trying to select from dropdown: {e}")
+                
+                return False
+        
+        print("Could not find a combobox near the 'Giọng đọc' label")
+    except Exception as e:
+        print(f"Error while looking for voice combobox: {e}")
+    
+    return False
+
+def print_all_voice_combobox_options(window):
+    print("Printing all options in the combobox associated with 'Giọng đọc'")
+    
+    try:
+        # First find the label element
+        label = window.child_window(title="Giọng đọc", control_type="Text")
+        print("Found the 'Giọng đọc' label")
+        
+        # Get label's rectangle
+        label_rect = label.rectangle()
+        
+        # Find all combo box controls in the window
+        combo_boxes = window.descendants(control_type="ComboBox")
+        
+        # Look for combo box controls that are positioned near the label
+        for combo in combo_boxes:
+            combo_rect = combo.rectangle()
+            
+            # Check if combo box is to the right or below the label
+            if (combo_rect.left >= label_rect.left and 
+                abs(combo_rect.top - label_rect.top) < 50):  # within 50 pixels vertically
+                
+                print(f"Found combobox near 'Giọng đọc' label")
+                
+                # Click the combo box to open the dropdown
+                combo.click_input()
+                time.sleep(1)  # Wait for dropdown to appear
+                
+                # Get and print all options in the dropdown using control identifiers
+                try:
+                    print("\n=== AVAILABLE VOICE OPTIONS (Using Control Identifiers) ===")
+                    
+                    # Print control identifiers which might show all combobox items
+                    print("Printing all controls including combobox items:")
+                    window.print_control_identifiers()
+                    
+                    # Try to get combobox children directly (might work for some comboboxes)
+                    print("\nAttempting to list combobox items directly:")
+                    try:
+                        # Some comboboxes expose their items as children
+                        combo_items = combo.children()
+                        if combo_items:
+                            for item in combo_items:
+                                try:
+                                    item_text = item.window_text()
+                                    if item_text:
+                                        print(f"- Direct Child: {item_text}")
+                                except Exception:
+                                    pass
+                        else:
+                            print("No direct children found in combobox")
+                            
+                        # If dropdown isn't already open, try opening it
+                        combo.click_input()
+                        time.sleep(1)  # Wait for dropdown to appear
+                    
+                        # Find all list items in the dropdown
+                        dropdown_items = window.descendants(control_type="ListItem")
+                        
+                        for item in dropdown_items:
+                            try:
+                                item_text = item.window_text()
+                                print(f"- {item_text}")
+                            except Exception as e:
+                                print(f"Error getting text from option: {e}")
+                    except Exception as e:
+                        print(f"Error trying to access combobox items directly: {e}")
+                        
+                    print("=================================================\n")
+                    
+                    # Click somewhere else to close the dropdown if it was opened
+                    label.click_input()
+                    return True
+                except Exception as e:
+                    print(f"Error while trying to list dropdown options: {e}")
+                    # Try to close the dropdown
+                    label.click_input()
+                
+                return False
+        
+        print("Could not find a combobox near the 'Giọng đọc' label")
+    except Exception as e:
+        print(f"Error while looking for voice combobox: {e}")
+    
+    return False
+
+def extract_combobox_values_from_identifiers(window):
+    """Extract ComboBox values directly from the control identifiers output"""
+    print("\n=== EXTRACTING VOICE OPTIONS FROM CONTROL IDENTIFIERS ===")
+    
+
+    # Redirect stdout to capture the print_control_identifiers output
+    f = io.StringIO()
+    with redirect_stdout(f):
+        window.print_control_identifiers()
+    
+    # Get the output as a string
+    output = f.getvalue()
+    
+    # Look for ComboBox entries that contain voice information
+
+    
+    # Pattern to match ComboBox entries with voice data
+    # Example: 'ComboBox354 | ms-MY-Standard-B | AutoVoice1 | Malaysia | Nam | Free'
+    pattern = r"ComboBox\d+\s+\|\s+([\w\-]+)\s+\|\s+AutoVoice\d+\s+\|\s+(.*?)\s+\|\s+(Nam|Nữ)\s+\|\s+(Free|Paid)"
+    
+    matches = re.findall(pattern, output)
+    
+    if matches:
+        print("\nFound the following voice options:")
+        print("-" * 80)
+        print(f"{'Voice ID':<20} | {'Language/Region':<30} | {'Gender':<10} | {'Type':<10}")
+        print("-" * 80)
+        
+        for match in matches:
+            voice_id = match[0]
+            language = match[1]
+            gender = match[2]
+            voice_type = match[3]
+            print(f"{voice_id:<20} | {language:<30} | {gender:<10} | {voice_type:<10}")
+        
+        print("-" * 80)
+        return True
+    else:
+        print("Could not find voice options in the control identifiers output")
+        
+        # Alternative approach: try using a simpler pattern
+        simple_pattern = r"ComboBox\d+\s+\|(.*?)\|"
+        simple_matches = re.findall(simple_pattern, output)
+        
+        if simple_matches:
+            print("\nFound the following raw ComboBox entries:")
+            for entry in simple_matches:
+                print(f"- {entry.strip()}")
+        
+        return False
+
+# # Find and click the "Thêm API" element first
+# find_and_click_element_with_text(main_window, "Thêm API")
+
+# Select a voice containing a specific number (e.g., 354 from your example)
+ # Replace with the number you want to find in the voice name
+def select_voice_by_number(window, number):
+    dismiss_update_dialog(app)
+    """
+    Select a voice from the combobox by finding an option containing the specified number.
+    
+    Args:
+        window: The window containing the combobox
+        number: A number to look for in the voice name
+    """
+    print(f"Selecting voice containing number '{number}' in its name")
+    
+    try:
+        # Find the combobox by its auto_id
+        combo = window.child_window(auto_id="comboBox1", control_type="ComboBox")
+        
+        # Get all available items
+        items = combo.texts()
+        
+        # Find an item containing the specified number
+        target_item = None
+        for item in items:
+            if str(number) in item:
+                target_item = item
+                print(f"Found matching voice: {item}")
+                break
+        
+        if not target_item:
+            print(f"No voice found containing number '{number}'")
+            return False
+        
+        # Click the combobox to focus it
+        combo.click_input()
+        time.sleep(0.5)
+        
+        # Clear the current text with Ctrl+A and Delete
+        send_keys("^a{DELETE}")
+        time.sleep(0.5)
+        
+        # Copy the target text to clipboard and paste it
+        pyperclip.copy(target_item)
+        send_keys("^v")
+        time.sleep(0.5)
+        
+        # Press Enter to confirm selection
+        send_keys("{ENTER}")
+        
+        print(f"Successfully selected voice: {target_item}")
+        return True
+        
+    except Exception as e:
+        print(f"Error selecting voice by number: {e}")
+        return False
+
+# Example usage:
+
+def toggle_hide_old_subtitles(window, check=True):
+    dismiss_update_dialog(app)
+    """
+    Find and toggle the 'Che sub cũ' (Hide old subtitles) checkbox.
+    
+    Args:
+        window: The window containing the checkbox
+        check: True to check the box, False to uncheck it
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    print(f"Looking for 'Che sub cũ' checkbox to {'check' if check else 'uncheck'} it")
+    
+    try:
+        # Try to find the checkbox directly by text
+        checkboxes = window.descendants(control_type="CheckBox")
+        
+        # First approach: Look for checkbox with this exact text
+        for checkbox in checkboxes:
+            try:
+                text = checkbox.window_text()
+                if "che sub cũ" in text.lower():
+                    print(f"Found 'Che sub cũ' checkbox with text: '{text}'")
+                    
+                    # Check current state
+                    current_state = checkbox.get_toggle_state()
+                    print(f"Current state: {'Checked' if current_state == 1 else 'Unchecked'}")
+                    
+                    # Toggle if needed
+                    if (check and current_state == 0) or (not check and current_state == 1):
+                        checkbox.toggle()
+                        print(f"Toggled 'Che sub cũ' checkbox to {'checked' if check else 'unchecked'}")
+                    else:
+                        print(f"'Che sub cũ' checkbox already in desired state")
+                        
+                    return True
+            except Exception as e:
+                print(f"Error checking a checkbox: {e}")
+        
+        # Second approach: Look for a label with this text and find a nearby checkbox
+        print("Looking for 'Che sub cũ' label...")
+        all_elements = window.descendants()
+        for element in all_elements:
+            try:
+                text = element.window_text()
+                if "che sub cũ" in text.lower():
+                    print(f"Found element with text: '{text}'")
+                    
+                    # Get element rectangle
+                    element_rect = element.rectangle()
+                    
+                    # Look for a checkbox nearby
+                    for checkbox in checkboxes:
+                        checkbox_rect = checkbox.rectangle()
+                        
+                        # Check if checkbox is near the element (to the left or right)
+                        horizontal_distance = min(
+                            abs(checkbox_rect.right - element_rect.left),
+                            abs(element_rect.right - checkbox_rect.left)
+                        )
+                        vertical_distance = abs(checkbox_rect.top - element_rect.top)
+                        
+                        if horizontal_distance < 50 and vertical_distance < 20:
+                            print("Found checkbox near 'Che sub cũ' label")
+                            
+                            # Check current state
+                            current_state = checkbox.get_toggle_state()
+                            print(f"Current state: {'Checked' if current_state == 1 else 'Unchecked'}")
+                            
+                            # Toggle if needed
+                            if (check and current_state == 0) or (not check and current_state == 1):
+                                checkbox.toggle()
+                                print(f"Toggled checkbox to {'checked' if check else 'unchecked'}")
+                            else:
+                                print("Checkbox already in desired state")
+                                
+                            return True
+            except Exception:
+                pass
+        
+        print("Không tìm thấy nút 'Chọn' cùng hàng với label 'Đường dẫn video'")
+        return False
+    except Exception as e:
+        print(f"Lỗi khi thao tác với nút 'Chọn': {e}")
+        return False
+def enter_value_and_click_delete(window, value="10000"):
+    dismiss_update_dialog(app)
+    """
+    Find an input field with a delete button to its right,
+    enter a value, and click the delete button.
+    
+    Args:
+        window: The window containing the elements
+        value: The value to enter in the field (default: 10000)
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    print(f"Looking for input field with nearby delete button to enter '{value}'")
+    
+    try:
+        # Find all edit controls
+        edit_controls = window.descendants(control_type="Edit")
+        
+        # Find all buttons that might be delete buttons
+        delete_buttons = []
+        all_elements = window.descendants()
+        for element in all_elements:
+            try:
+                text = element.window_text()
+                # Look for elements with text containing "xóa" (delete)
+                if "xóa" in text.lower():
+                    print(f"Found potential delete button: '{text}'")
+                    delete_buttons.append(element)
+            except Exception:
+                pass
+        
+        if not delete_buttons:
+            print("No delete buttons found")
+            return False
+        
+        # For each edit control, check if there's a delete button to its right
+        for edit in edit_controls:
+            edit_rect = edit.rectangle()
+            
+            for button in delete_buttons:
+                button_rect = button.rectangle()
+                
+                # Check if button is to the right of the edit field and vertically aligned
+                if (button_rect.left > edit_rect.right and 
+                    abs(button_rect.top - edit_rect.top) < 20):
+                    
+                    print(f"Found input field with delete button to its right")
+                    
+                    # Click the input field
+                    edit.click_input()
+                    time.sleep(0.5)
+                    
+                    # Clear existing text and enter new value
+                    send_keys("^a{DELETE}")  # Ctrl+A, Delete
+                    edit.type_keys(value)
+                    print(f"Entered value '{value}' into the field")
+                    
+                    # Click the delete button
+                    time.sleep(0.5)
+                    button.click_input()
+                    print(f"Clicked the delete button")
+                    
+                    # Wait for the success popup to appear
+                    time.sleep(1)
+                    
+                    # Handle the success popup
+                    try:
+                        # Find popup dialog windows
+                        popup_windows = app.windows(visible_only=True)
+                        for popup in popup_windows:
+                            try:
+                                # Check if it's not the main window
+                                if popup != window:
+                                    popup_title = popup.window_text()
+                                    print(f"Found popup: '{popup_title}'")
+                                    
+                                    # Find and click OK or close button
+                                    # Try to find common button texts
+                                    for button_text in ["OK", "Ok", "Đồng ý", "Đóng", "Tắt"]:
+                                        try:
+                                            buttons = popup.descendants(title=button_text, control_type="Button")
+                                            if buttons:
+                                                ok_button = buttons[0]
+                                                print(f"Found '{button_text}' button in popup")
+                                                ok_button.click_input()
+                                                print("Clicked button to close popup")
+                                                time.sleep(0.5)
+                                                return True
+                                        except Exception as button_error:
+                                            print(f"Error finding '{button_text}' button: {button_error}")
+                                    
+                                    # If no specific button found, try to press Enter to close
+                                    print("No specific button found, trying Enter key")
+                                    popup.set_focus()
+                                    send_keys("{ENTER}")
+                                    time.sleep(0.5)
+                                    
+                                    return True
+                            except Exception as popup_error:
+                                print(f"Error processing popup window: {popup_error}")
+                        
+                        print("No popup found, operation may have completed without dialog")
+                    except Exception as e:
+                        print(f"Error handling popup: {e}")
+                    
+                    return True
+    
+    except Exception as e:
+        print(f"Error entering value and clicking delete button: {e}")
+        return False
+
+# Example usage in main code:
+
+
+def read_key_value_pairs(file_path):
+    """
+    Read key:value pairs from a text file.
+    
+    Args:
+        file_path: Path to the text file containing key:value pairs
+        
+    Returns:
+        Dictionary of key:value pairs
+    """
+    pairs = {}
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            for line in file:
+                line = line.strip()
+                if line and ':' in line:
+                    key, value = line.split(':', 1)
+                    pairs[key.strip()] = value.strip()
+        print(f"Loaded {len(pairs)} key:value pairs from {file_path}")
+    except Exception as e:
+        print(f"Error reading key:value pairs from {file_path}: {e}")
+    
+    return pairs
+
+def scan_directory_for_videos(directory):
+    """
+    Scan a directory for video files.
+    """
+    directory = directory.replace('/', '\\')
+    video_extensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv']
+    videos = []
+    
+    try:
+        for root, _, files in os.walk(directory):
+            for file in files:
+                if any(file.lower().endswith(ext) for ext in video_extensions):
+                    videos.append(os.path.join(root, file))
+        
+        print(f"Found {len(videos)} video files in {directory}")
+    except Exception as e:
+        print(f"Error scanning directory {directory}: {e}")
+    
+    return videos
+
+def process_videos_with_keys(window, key_value_file, video_directory, srt_directory):
+    video_directory = video_directory.replace('/', '\\')
+    srt_directory = srt_directory.replace('/', '\\')
+    print(f"Processing videos with keys from {key_value_file}")
+    
+    # Read key:value pairs
+    pairs = read_key_value_pairs(key_value_file)
+    if not pairs:
+        print("No key:value pairs found, aborting")
+        return
+    
+    # Scan for video files
+    videos = scan_directory_for_videos(video_directory)
+    if not videos:
+        print("No videos found, aborting")
+        return
+    
+    # Process each video
+    for video_path in videos:
+        dismiss_update_dialog(app)
+        video_path = video_path.replace('/', '\\')
+        video_filename = os.path.basename(video_path)
+        video_name_without_ext = os.path.splitext(video_filename)[0]
+        print(f"\nProcessing video: {video_filename}")
+        
+        # Find corresponding SRT file
+        srt_filename = video_name_without_ext + ".srt"
+        srt_path = os.path.join(srt_directory, srt_filename).replace('/', '\\')
+        
+        if not os.path.exists(srt_path):
+            print(f"SRT file not found: {srt_path}, skipping this video")
+            continue
+        
+        # Check if any key is in the video filename
+        matched_key = None
+        matched_value = None
+        
+        for key, value in pairs.items():
+            if key in video_filename:
+                matched_key = key
+                matched_value = value
+                print(f"Matched key '{key}' with value '{value}'")
+                break
+        
+        if not matched_key:
+            print(f"No key match found for {video_filename}, skipping")
+            continue
+        
+        # Enter the video path
+        print(f"Entering video path: {video_path}")
+        if not enter_text_for_video_path(window, video_path):
+            print(f"Failed to enter video path, skipping this video")
+            continue
+        
+        dismiss_update_dialog(app)
+        # Enter the SRT path
+        print(f"Entering SRT path: {srt_path}")
+        if not enter_text_for_srt_path(window, srt_path):
+            print(f"Failed to enter SRT path, skipping this video")
+            continue
+        
+        dismiss_update_dialog(app)
+        # Select voice based on the value (voice number)
+        print(f"Selecting voice with number {matched_value}")
+        if not select_voice_by_number(window, matched_value):
+            print(f"Failed to select voice, skipping this video")
+            continue
+        
+        dismiss_update_dialog(app)
+        # Check the "Che sub cũ" checkbox
+        print("Checking 'Che sub cũ' checkbox")
+        toggle_hide_old_subtitles(window, check=True)
+        dismiss_update_dialog(app)
+        # === Bổ sung: tìm khung video và khoanh vùng subtitle ===
+        print("Tìm khung video và khoanh vùng subtitle...")
+        candidates = find_video_window(window)
+        if candidates and len(candidates) >= 1:
+            # Ưu tiên khung đầu tiên, hoặc bạn có thể chọn theo index khác nếu muốn
+            try_drag_slider_and_find_subtitle(candidates[2])
+        else:
+            print("Không tìm thấy khung video để khoanh subtitle.")
+
+        # Enter value and click delete button
+        print("Entering value and clicking delete button")
+        enter_value_and_click_delete(window, "10000")
+        dismiss_update_dialog(app)
+        
+        # Wait between processing videos
+        time.sleep(2)
+        click_start_button(window)
+        print(f"Completed processing video: {video_filename}")
+def find_video_window(window):
+    """
+    Tìm control con có khả năng là cửa sổ hiển thị video.
+    """
+    print("Liệt kê các control để xác định cửa sổ video:")
+    window.print_control_identifiers()
+
+    # Thử lọc theo control_type hoặc class_name phổ biến
+    candidates = []
+    for ctrl in window.descendants():
+        # Bạn có thể thay đổi điều kiện dưới đây cho phù hợp app của bạn
+        if ctrl.friendly_class_name() in ["Pane", "Custom", "Static", "WindowsFormsHost"]:
+            # Có thể kiểm tra thêm về kích thước hoặc vị trí nếu cần
+            rect = ctrl.rectangle()
+            if rect.width() > 200 and rect.height() > 100:
+                candidates.append(ctrl)
+                print(f"Candidate: {ctrl.window_text()} | {ctrl.friendly_class_name()} | {rect}")
+
+    if candidates:
+        print(f"Đã tìm thấy {len(candidates)} control nghi là video.")
+        return candidates
+    else:
+        print("Không tìm thấy control nào nghi là video.")
+        return None
+
+def highlight_control_with_mouse(control, duration=3):
+    """
+    Di chuyển chuột xung quanh viền control trong thời gian duration (giây).
+    """
+    rect = control.rectangle()
+    print(f"Highlight control tại: {rect}")
+
+    # Các điểm quanh viền
+    points = [
+        (rect.left + 5, rect.top + 5),
+        (rect.right - 5, rect.top + 5),
+        (rect.right - 5, rect.bottom - 5),
+        (rect.left + 5, rect.bottom - 5),
+        (rect.left + rect.width() // 2, rect.top + 5),
+        (rect.right - 5, rect.top + rect.height() // 2),
+        (rect.left + rect.width() // 2, rect.bottom - 5),
+        (rect.left + 5, rect.top + rect.height() // 2),
+    ]
+
+    start_time = time.time()
+    idx = 0
+    while time.time() - start_time < duration:
+        move(coords=points[idx % len(points)])
+        idx += 1
+        time.sleep(0.2)
+
+    print("Đã highlight xong control.")
+# Example usage:
+def has_horizontal_scrollbar(control):
+    """
+    Kiểm tra control này hoặc control con của nó có thanh scroll ngang không.
+    """
+    # Kiểm tra trực tiếp control này
+    if "ScrollBar" in control.friendly_class_name() or "ScrollBar" in control.class_name():
+        # Kiểm tra chiều ngang
+        if hasattr(control, "is_horizontal") and control.is_horizontal():
+            return True
+
+    # Kiểm tra các control con
+    for child in control.descendants():
+        if "ScrollBar" in child.friendly_class_name() or "ScrollBar" in child.class_name():
+            # Một số control có thuộc tính orientation hoặc is_horizontal
+            try:
+                if hasattr(child, "is_horizontal") and child.is_horizontal():
+                    return True
+                # Nếu không có, kiểm tra kích thước: ngang dài hơn dọc
+                rect = child.rectangle()
+                if rect.width() > rect.height():
+                    return True
+            except Exception:
+                continue
+    return False
+
+def drag_around_subtitle_in_video_frame(video_frame):
+    # Tìm control con có text giống subtitle
+    for child in video_frame.descendants():
+        text = child.window_text()
+        if text and len(text) > 3:  # Có thể thêm điều kiện nhận diện subtitle
+            rect = child.rectangle()
+            top_left = (rect.left + 2, rect.top + 2)
+            bottom_right = (rect.right - 2, rect.bottom - 2)
+            print(f"Kéo chuột quanh subtitle: {text} từ {top_left} đến {bottom_right}")
+
+            move(coords=top_left)
+            press(button='left', coords=top_left)
+            time.sleep(0.2)
+            move(coords=bottom_right)
+            time.sleep(0.2)
+            release(button='left', coords=bottom_right)
+            print("Đã kéo chuột quanh subtitle.")
+            return
+    print("Không tìm thấy control subtitle.")
+def print_all_text_controls(control):
+    """
+    In ra tất cả control con có text (subtitle hoặc label) trong control truyền vào.
+    """
+    for child in control.descendants():
+        text = child.window_text()
+        if text and text.strip():
+            rect = child.rectangle()
+            print(f"Text: '{text}' | Class: {child.friendly_class_name()} | Rect: {rect}")
+
+def easyocr_and_drag_subtitle(rect):
+    # Chụp ảnh vùng khung video
+    img = ImageGrab.grab(bbox=(rect.left, rect.top, rect.right, rect.bottom))
+    img_np = np.array(img)
+
+    # Nhận diện text bằng EasyOCR
+    reader = easyocr.Reader(['en', 'vi'])
+    results = reader.readtext(img_np)
+
+    found = False
+    rect_height = rect.height()
+    lower_half_top = rect_height // 2
+
+    for (bbox, text, conf) in results:
+        # Tính điểm giữa của bbox
+        y_coords = [point[1] for point in bbox]
+        y_center = int(sum(y_coords) / 4)
+        # Chỉ lấy text nằm ở nửa dưới
+        if y_center >= lower_half_top:
+            if text.strip() and len(text.strip()) > 2:
+                print(f"Subtitle OCR (nửa dưới): '{text}' | bbox: {bbox} | conf: {conf}")
+                x_min = int(min([point[0] for point in bbox]))
+                y_min = int(min([point[1] for point in bbox]))
+                x_max = int(max([point[0] for point in bbox]))
+                y_max = int(max([point[1] for point in bbox]))
+                abs_left = rect.left + x_min
+                abs_top = rect.top + y_min
+                abs_right = rect.left + x_max
+                abs_bottom = rect.top + y_max
+                # Kéo chuột quanh vùng subtitle
+                move(coords=(abs_left, abs_top))
+                press(button='left', coords=(abs_left, abs_top))
+                time.sleep(0.2)
+                move(coords=(abs_right, abs_bottom))
+                time.sleep(0.2)
+                release(button='left', coords=(abs_right, abs_bottom))
+                print("Đã kéo chuột quanh subtitle bằng EasyOCR.")
+                found = True
+                break
+    if not found:
+        print("Không tìm thấy subtitle ở nửa dưới bằng EasyOCR.")
+
+
+
+def click_random_positions_on_slider(video_frame):
+    # Tìm control slider trong video_frame
+    slider = None
+    for child in video_frame.descendants():
+        if child.friendly_class_name() == "Slider":
+            rect = child.rectangle()
+            if rect.width() > rect.height():  # Chỉ lấy slider ngang
+                slider = child
+                break
+    if not slider:
+        print("Không tìm thấy slider ngang trong khung video.")
+        return
+
+    rect = slider.rectangle()
+    print(f"Slider ngang rect: {rect}")
+
+    # Chọn 2 vị trí ngẫu nhiên ở khoảng giữa (30% - 70%)
+    width = rect.width()
+    # Dịch lên 10 pixel so với giữa slider
+    y = rect.top + rect.height() // 2 - 12
+    x1 = rect.left + int(width * random.uniform(0.3, 0.7))
+    x2 = rect.left + int(width * random.uniform(0.3, 0.7))
+
+    print(f"Click vào slider ngang tại: ({x1}, {y}) và ({x2}, {y})")
+
+    move(coords=(x1, y))
+    click(button='left', coords=(x1, y))
+    move(coords=(x2, y))
+    click(button='left', coords=(x2, y))
+def print_horizontal_sliders(video_frame):
+    sliders = []
+    for child in video_frame.descendants():
+        if child.friendly_class_name() == "Slider":
+            rect = child.rectangle()
+            if rect.width() > rect.height():
+                sliders.append((child, rect))
+    print(f"Tổng số slider ngang: {len(sliders)}")
+    for i, (slider, rect) in enumerate(sliders):
+        print(f"Slider ngang #{i+1}: rect={rect}")
+
+def drag_across_slider(video_frame, steps=50, delay=0.2):
+    # Tìm control slider ngang trong video_frame
+    slider = None
+    for child in video_frame.descendants():
+        if child.friendly_class_name() == "Slider":
+            rect = child.rectangle()
+            if rect.width() > rect.height():
+                slider = child
+                break
+    if not slider:
+        print("Không tìm thấy slider ngang trong khung video.")
+        return
+
+    rect = slider.rectangle()
+    print(f"Slider ngang rect: {rect}")
+
+    width = rect.width()
+    # Dịch lên 12 pixel nếu cần (giống code cũ)
+    y = rect.top + rect.height() // 2 - 12
+
+    # Điểm 1: 1/4 đầu
+    x1 = rect.left + int(width * 0.25)
+    # Điểm 2: 1/4 cuối
+    x2 = rect.left + int(width * 0.75)
+
+    print(f"Kéo chuột từ ({x1}, {y}) đến ({x2}, {y}) trên slider ngang.")
+
+    move(coords=(x1, y))
+    press(button='left', coords=(x1, y))
+    for i in range(1, steps + 1):
+        x = int(x1 + (x2 - x1) * i / steps)
+        move(coords=(x, y))
+        time.sleep(delay)
+    release(button='left', coords=(x2, y))
+    print("Đã kéo chuột từ từ trên slider ngang.")
+def is_probably_subtitle(text):
+    # Loại bỏ text toàn số hoặc rất ngắn
+    if text.isdigit() or len(text.strip()) < 4:
+        return False
+    # Loại bỏ text không có dấu cách (thường subtitle là câu)
+    if " " not in text:
+        return False
+    # Loại bỏ text toàn in hoa (thường là watermark/logo)
+    if text.isupper():
+        return False
+    # Có thể bổ sung thêm các điều kiện khác nếu cần
+    return True
+def easyocr_and_drag_subtitle_with_wider_box(rect, width_expand=80):
+    """
+    Nhận diện subtitle ở nửa dưới bằng EasyOCR, khoanh vùng subtitle với chiều ngang mở rộng.
+    Nếu subtitle có nhiều dòng, sẽ khoanh vùng bao trùm tất cả dòng.
+    """
+    img = ImageGrab.grab(bbox=(rect.left, rect.top, rect.right, rect.bottom))
+    img_np = np.array(img)
+    reader = easyocr.Reader(['en', 'vi'])
+    results = reader.readtext(img_np)
+    rect_height = rect.height()
+    lower_half_top = rect_height // 2
+
+    # Gom các bbox subtitle ở nửa dưới
+    subtitle_bboxes = []
+    for (bbox, text, conf) in results:
+        y_coords = [point[1] for point in bbox]
+        y_center = int(sum(y_coords) / 4)
+        if y_center >= lower_half_top and is_probably_subtitle(text):
+            subtitle_bboxes.append(bbox)
+            print(f"Subtitle OCR (nửa dưới): '{text}' | bbox: {bbox} | conf: {conf}")
+
+    if subtitle_bboxes:
+        # Tìm bbox bao trùm tất cả dòng subtitle
+        x_min = min(int(min([p[0] for p in bbox])) for bbox in subtitle_bboxes)
+        y_min = min(int(min([p[1] for p in bbox])) for bbox in subtitle_bboxes)
+        x_max = max(int(max([p[0] for p in bbox])) for bbox in subtitle_bboxes)
+        y_max = max(int(max([p[1] for p in bbox])) for bbox in subtitle_bboxes)
+        # Mở rộng chiều ngang
+        abs_left = max(rect.left + x_min - width_expand, rect.left)
+        abs_top = rect.top + y_min
+        abs_right = min(rect.left + x_max + width_expand, rect.right)
+        abs_bottom = rect.top + y_max
+        # Kéo chuột quanh vùng subtitle mở rộng
+        move(coords=(abs_left, abs_top))
+        press(button='left', coords=(abs_left, abs_top))
+        time.sleep(0.2)
+        move(coords=(abs_right, abs_bottom))
+        time.sleep(0.2)
+        release(button='left', coords=(abs_right, abs_bottom))
+        print("Đã khoanh vùng subtitle nhiều dòng.")
+        return True
+
+    print("Không tìm thấy subtitle ở nửa dưới bằng EasyOCR.")
+    return False
+def try_drag_slider_and_find_subtitle(video_frame, max_attempts=3):
+    """
+    Kéo slider ngang với các vị trí khác nhau, sau đó nhận diện subtitle.
+    Nếu tìm thấy subtitle thì khoanh vùng, nếu không thì thử lại với vị trí khác.
+    """
+    slider = None
+    for child in video_frame.descendants():
+        if child.friendly_class_name() == "Slider":
+            rect = child.rectangle()
+            if rect.width() > rect.height():
+                slider = child
+                break
+    if not slider:
+        print("Không tìm thấy slider ngang trong khung video.")
+        return
+
+    rect = slider.rectangle()
+    width = rect.width()
+    y = rect.top + rect.height() // 2 - 12
+
+    for attempt in range(max_attempts):
+        # Sinh 2 điểm khác nhau ở vùng 20%–80%
+        x1 = rect.left + int(width * np.random.uniform(0.2, 0.4))
+        x2 = rect.left + int(width * np.random.uniform(0.6, 0.8))
+        print(f"[Lần {attempt+1}] Kéo slider từ ({x1}, {y}) đến ({x2}, {y})")
+        move(coords=(x1, y))
+        press(button='left', coords=(x1, y))
+        for i in range(1, 30):
+            x = int(x1 + (x2 - x1) * i / 30)
+            move(coords=(x, y))
+            time.sleep(0.01)
+        release(button='left', coords=(x2, y))
+        time.sleep(0.5)  # Đợi video/subtitle cập nhật
+
+        # Lấy rect khung video (giả sử là video_frame.rect)
+        video_rect = video_frame.rectangle()
+        found = easyocr_and_drag_subtitle_with_wider_box(video_rect, width_expand=60)
+        if found:
+            print("Đã tìm thấy subtitle, dừng thử lại slider.")
+            return
+        else:
+            print("Không tìm thấy subtitle, thử lại slider với vị trí khác.")
+    print("Đã thử hết số lần mà không tìm thấy subtitle.")
+
+# Thêm hàm log mặc định
+def log(msg):
+    print(msg)
+
+# Thay tất cả các print(...) thành log(...) nếu muốn log ra GUI
+# (Bạn có thể thay thế toàn bộ print(...) => log(...) nếu muốn đồng bộ log ra GUI)
+def close_update_popup(timeout=10):
+    """
+    Tìm và tắt popup update nếu xuất hiện.
+    """
+    
+    print("Đang kiểm tra popup update...")
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        try:
+            # Lấy tất cả cửa sổ đang mở
+            windows = Desktop(backend="uia").windows()
+            for win in windows:
+                title = win.window_text()
+                if "update" in title.lower():
+                    print(f"Phát hiện popup update: '{title}'")
+                    # Tìm các nút phổ biến để đóng
+                    for btn_text in ["Đóng", "Tắt", "Cancel", "Hủy", "Close"]:
+                        try:
+                            btn = win.child_window(title_re=f".*{btn_text}.*", control_type="Button")
+                            if btn.exists():
+                                btn.click_input()
+                                print(f"Đã click nút '{btn_text}' để tắt popup update.")
+                                return True
+                        except Exception:
+                            continue
+                    # Nếu không tìm thấy nút, thử nhấn Esc
+                    try:
+                        win.set_focus()
+                        send_keys("{ESC}")
+                        print("Đã gửi phím ESC để tắt popup update.")
+                        return True
+                    except Exception:
+                        pass
+            time.sleep(1)
+        except Exception as e:
+            print(f"Lỗi khi kiểm tra popup update: {e}")
+            time.sleep(1)
+    print("Không phát hiện popup update hoặc không thể tắt.")
+    return False
+def dismiss_update_dialog(app, timeout=3):
+    """
+    Kiểm tra liên tục trong vòng timeout (giây) xem có dialog update không, nếu có thì đóng.
+    """
+    try:
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            dialogs = app.windows(visible_only=True)
+            for dialog in dialogs:
+                title = dialog.window_text().lower()
+                # Điều kiện nhận diện dialog update, có thể sửa lại cho phù hợp app của bạn
+                if "update" in title or "cập nhật" in title:
+                    print(f"Đã phát hiện dialog update: {title}, đang đóng...")
+                    try:
+                        dialog.close()
+                        time.sleep(0.5)
+                        return True
+                    except Exception as e:
+                        print(f"Lỗi khi đóng dialog update: {e}")
+            time.sleep(0.3)
+        print("Không phát hiện dialog update.")
+        return True
+    except Exception as e:
+        print(f"Error handling update dialog: {e}")
+        return False
+
+def click_start_button(window):
+    dismiss_update_dialog(app)
+    print("Đang tìm và nhấn nút 'Bắt đầu'...")
+    try:
+        # Tìm nút "Bắt đầu" hoặc "Start"
+        for btn_text in ["Bắt đầu", "Start"]:
+            try:
+                btn = window.child_window(title_re=f".*{btn_text}.*", control_type="Button")
+                if btn.exists():
+                    btn.click_input()
+                    print(f"Đã nhấn nút '{btn_text}'")
+                    return True
+            except Exception:
+                continue
+        print("Không tìm thấy nút 'Bắt đầu' hoặc 'Start'.")
+        return False
+    except Exception as e:
+        print(f"Lỗi khi nhấn nút 'Bắt đầu': {e}")
+        return False
+
+
 CONFIG_FILE = "config.json"
+
+# Thêm biến để log trạng thái
+log_text = None
+
+def log(msg):
+    if log_text:
+        log_text.insert(tk.END, msg + "\n")
+        log_text.see(tk.END)
+    print(msg)
 
 def select_video_folder():
     folder = filedialog.askdirectory(title="Chọn thư mục video")
@@ -35,10 +1251,44 @@ def load_config():
                 input_text.insert(tk.END, "\n".join(lines))
 
 def start_action():
-    print("Bắt đầu...")
+    # Lấy dữ liệu từ GUI
+    key_value_lines = input_text.get("1.0", tk.END).strip().splitlines()
+    key_value_pairs = {}
+    for line in key_value_lines:
+        if ':' in line:
+            k, v = line.split(':', 1)
+            key_value_pairs[k.strip()] = v.strip()
+    video_folder = video_folder_var.get().replace('/', '\\')
+    srt_folder = srt_folder_var.get().replace('/', '\\')
+    if not key_value_pairs or not video_folder or not srt_folder:
+        messagebox.showerror("Lỗi", "Vui lòng nhập đủ thông tin!")
+        return
+
+    # Chạy automation ở thread khác để không block GUI
+    def run_automation():
+        global app, log_text, main_window
+        try:
+            log("Bắt đầu tự động hóa AutoVoice...")
+            app_path = r".\AutoVoice\AutoVoice\AutoVoice.exe"
+            app = Application(backend="uia").connect(path=app_path)
+            main_window = app.window(title_re=".*AutoVoice.*")
+            main_window.wait('visible')
+            with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as f:
+                for k, v in key_value_pairs.items():
+                    # Đảm bảo đường dẫn value cũng dùng \
+                    f.write(f"{k.replace('/', '\\')}:{v.replace('/', '\\')}\n")
+                key_value_file = f.name
+
+            process_videos_with_keys(main_window, key_value_file, video_folder, srt_folder)
+
+            log("Hoàn thành tự động hóa.")
+        except Exception as e:
+            log(f"Lỗi: {e}")
+
+    threading.Thread(target=run_automation, daemon=True).start()
 
 def stop_action():
-    print("Dừng lại...")
+    messagebox.showinfo("Thông báo", "Chức năng dừng chưa được hỗ trợ.")
 
 root = tk.Tk()
 root.title("AutoVoice GUI")
@@ -64,6 +1314,11 @@ input_text.grid(row=2, column=1, columnspan=2, padx=5, pady=5, sticky="w")
 tk.Button(root, text="Lưu", width=10, command=save_input).grid(row=3, column=0, padx=5, pady=10)
 tk.Button(root, text="Start", width=10, command=start_action).grid(row=3, column=1, padx=5, pady=10, sticky="w")
 tk.Button(root, text="Stop", width=10, command=stop_action).grid(row=3, column=2, padx=5, pady=10, sticky="w")
+
+# Thêm khung log trạng thái
+tk.Label(root, text="Log trạng thái:").grid(row=4, column=0, sticky="nw", padx=5, pady=5)
+log_text = scrolledtext.ScrolledText(root, width=50, height=10, state="normal")
+log_text.grid(row=4, column=1, columnspan=2, padx=5, pady=5, sticky="w")
 
 # Load config khi mở tool
 load_config()
