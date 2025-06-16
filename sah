@@ -835,7 +835,7 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         dismiss_update_dialog(app)
         # Check the "Che sub cũ" checkbox
         print("Checking 'Che sub cũ' checkbox")
-        toggle_hide_old_subtitles(window, check=True, window=window)
+        toggle_hide_old_subtitles(window, check=True, main_window=window)
         dismiss_update_dialog(app)
         # === Bổ sung: tìm khung video và khoanh vùng subtitle ===
         print("Tìm khung video và khoanh vùng subtitle...")
