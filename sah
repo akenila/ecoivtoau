@@ -1116,7 +1116,7 @@ def easyocr_and_drag_subtitle_with_wider_box(rect, width_expand=80, retry_on_pop
         y_center = int(sum(y_coords) / 4)
         if y_center >= lower_half_top and is_probably_subtitle(text):
             subtitle_bboxes.append(bbox)
-            print(f"Subtitle OCR (nửa dưới): '{text}' | bbox: {bbox} | conf: {conf}")
+            log(f"Subtitle OCR: '{text}' | bbox: {bbox} | conf: {conf}")
 
     if subtitle_bboxes:
         # Tìm bbox bao trùm tất cả dòng subtitle
@@ -1195,7 +1195,7 @@ def try_drag_slider_and_find_subtitle(video_frame, max_attempts=3, main_window=N
         # Sinh 2 điểm khác nhau ở vùng 20%–80%
         x1 = rect.left + int(width * np.random.uniform(0.2, 0.4))
         x2 = rect.left + int(width * np.random.uniform(0.6, 0.8))
-        print(f"[Lần {attempt+1}] Kéo slider từ ({x1}, {y}) đến ({x2}, {y})")
+        log(f"[Lần {attempt+1}] Kéo slider từ ({x1}, {y}) đến ({x2}, {y})")
         move(coords=(x1, y))
         press(button='left', coords=(x1, y))
         for i in range(1, 30):
