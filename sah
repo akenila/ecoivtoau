@@ -843,7 +843,7 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         candidates = find_video_window(window)
         if candidates and len(candidates) >= 1:
             # Ưu tiên khung đầu tiên, hoặc bạn có thể chọn theo index khác nếu muốn
-            try_drag_slider_and_find_subtitle(candidates[2], window)
+            try_drag_slider_and_find_subtitle(candidates[2], max_attempts=8, main_window=window)
         else:
             log("Không tìm thấy khung video để khoanh subtitle.")
 
