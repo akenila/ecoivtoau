@@ -750,7 +750,7 @@ def wait_until_output_video_stable(video_filename, stable_checks=3, check_interv
     log(f"Waiting for output video to stabilize: {video_filename}")
     video_name = os.path.splitext(video_filename)[0]
     output_path = os.path.join(
-        ".", "AutoVoice", "AutoVoice", "video", video_name, f"result{video_name},mp4"
+        ".", "AutoVoice", "AutoVoice", "video", video_name, f"result{video_name}.mp4"
     )
     stable_count = 0
     last_size = -1
@@ -772,6 +772,7 @@ def wait_until_output_video_stable(video_filename, stable_checks=3, check_interv
             if stable_count >= stable_checks:
                 print(f"File kết quả đã ổn định: {output_path}")
                 return True
+        
         time.sleep(check_interval)
         waited += check_interval
     print(f"Hết thời gian chờ, file chưa ổn định: {output_path}")
@@ -868,6 +869,45 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         click_start_button(window)
         print("Clicking start button to process video")
         wait_until_output_video_stable(video_filename)
+        try:
+                        # Find popup dialog windows
+                        popup_windows = app.windows(visible_only=True)
+                        for popup in popup_windows:
+                            try:
+                                # Check if it's not the main window
+                                if popup != window:
+                                    popup_title = popup.window_text()
+                                    print(f"Found popup: '{popup_title}'")
+                                    
+                                    # Find and click OK or close button
+                                    # Try to find common button texts
+                                    for button_text in ["OK", "Ok", "Đồng ý", "Đóng", "Tắt"]:
+                                        try:
+                                            buttons = popup.descendants(title=button_text, control_type="Button")
+                                            if buttons:
+                                                ok_button = buttons[0]
+                                                print(f"Found '{button_text}' button in popup")
+                                                ok_button.click_input()
+                                                print("Clicked button to close popup")
+                                                time.sleep(0.5)
+                                                return True
+                                        except Exception as button_error:
+                                            print(f"Error finding '{button_text}' button: {button_error}")
+                                    
+                                    # If no specific button found, try to press Enter to close
+                                    print("No specific button found, trying Enter key")
+                                    popup.set_focus()
+                                    send_keys("{ENTER}")
+                                    time.sleep(0.5)
+                                    
+                                    return True
+                            except Exception as popup_error:
+                                print(f"Error processing popup window: {popup_error}")
+                        
+                        print("No popup found, operation may have completed without dialog")
+        except Exception as e:
+                        print(f"Error handling popup: {e}")
+                    
         print(f"Completed processing video: {video_filename}")
 def find_video_window(window):
     """
