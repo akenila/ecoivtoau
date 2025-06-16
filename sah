@@ -1284,20 +1284,31 @@ def close_update_popup(timeout=10):
     print("Không phát hiện popup update hoặc không thể tắt.")
     return False
 def dismiss_update_dialog(app, timeout=3):
-    """
-    Kiểm tra liên tục trong vòng timeout (giây) xem có dialog update không, nếu có thì đóng.
-    """
+    import time
     try:
         start_time = time.time()
         while time.time() - start_time < timeout:
             dialogs = app.windows(visible_only=True)
             for dialog in dialogs:
                 title = dialog.window_text().lower()
-                # Điều kiện nhận diện dialog update, có thể sửa lại cho phù hợp app của bạn
                 if "update" in title or "cập nhật" in title:
                     print(f"Đã phát hiện dialog update: {title}, đang đóng...")
                     try:
+                        # Duyệt tất cả button con
+                        for btn in dialog.descendants():
+                            try:
+                                if btn.friendly_class_name() == "Button":
+                                    btn_text = btn.window_text().lower()
+                                    if any(x in btn_text for x in ["no", "không", "cancel", "hủy", "đóng"]):
+                                        btn.click_input()
+                                        print(f"Đã bấm nút '{btn.window_text()}' để tắt dialog update.")
+                                        time.sleep(0.5)
+                                        return True
+                            except Exception:
+                                continue
+                        # Nếu không có nút, thử đóng dialog
                         dialog.close()
+                        print("Đã đóng dialog update bằng close().")
                         time.sleep(0.5)
                         return True
                     except Exception as e:
@@ -1308,7 +1319,6 @@ def dismiss_update_dialog(app, timeout=3):
     except Exception as e:
         print(f"Error handling update dialog: {e}")
         return False
-
 def click_start_button(window):
     dismiss_update_dialog(app)
     print("Đang tìm và nhấn nút 'Bắt đầu'...")
