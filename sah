@@ -773,7 +773,7 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         srt_path = find_matching_srt(video_name_without_ext, srt_directory)
         
         if not srt_path or not os.path.exists(srt_path):
-            log(f"Không tìm thấy file SRT tương ứng cho video {video_filename}, bỏ qua")
+            log()
             continue
         
         # Check if any key is in the video filename
@@ -949,7 +949,7 @@ def easyocr_and_drag_subtitle(rect):
     img_np = np.array(img)
 
     # Nhận diện text bằng EasyOCR
-    reader = easyocr.Reader(['en', 'vi'])
+    reader = easyocr.Reader(['en', 'vi', "ch_sim", "ch_tra"])
     results = reader.readtext(img_np)
 
     found = False
