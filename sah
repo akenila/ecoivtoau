@@ -772,8 +772,8 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         video_filename = os.path.basename(video_path)
         srt_path = find_matching_srt(video_name_without_ext, srt_directory)
         
-        if not os.path.exists(srt_path):
-            print(f"SRT file not found: {srt_path}, skipping this video")
+        if not srt_path or not os.path.exists(srt_path):
+            log(f"Không tìm thấy file SRT tương ứng cho video {video_filename}, bỏ qua")
             continue
         
         # Check if any key is in the video filename
