@@ -494,8 +494,45 @@ def toggle_hide_old_subtitles(window, check=True):
                     else:
                         print(f"'Che sub cũ' checkbox already in desired state")
                     time.sleep(1)  # Wait for the toggle to take effect
-                    send_keys("{ENTER}")  # Press Enter to confirm if needed
-                    time.sleep(0.5)
+                    try:
+                        # Find popup dialog windows
+                        popup_windows = app.windows(visible_only=True)
+                        for popup in popup_windows:
+                            try:
+                                # Check if it's not the main window
+                                if popup != window:
+                                    popup_title = popup.window_text()
+                                    print(f"Found popup: '{popup_title}'")
+                                    
+                                    # Find and click OK or close button
+                                    # Try to find common button texts
+                                    for button_text in ["OK", "Ok", "Đồng ý", "Đóng", "Tắt"]:
+                                        try:
+                                            buttons = popup.descendants(title=button_text, control_type="Button")
+                                            if buttons:
+                                                ok_button = buttons[0]
+                                                print(f"Found '{button_text}' button in popup")
+                                                ok_button.click_input()
+                                                print("Clicked button to close popup")
+                                                time.sleep(0.5)
+                                                return True
+                                        except Exception as button_error:
+                                            print(f"Error finding '{button_text}' button: {button_error}")
+                                    
+                                    # If no specific button found, try to press Enter to close
+                                    print("No specific button found, trying Enter key")
+                                    popup.set_focus()
+                                    send_keys("{ENTER}")
+                                    time.sleep(0.5)
+                                    
+                                    return True
+                            except Exception as popup_error:
+                                print(f"Error processing popup window: {popup_error}")
+                        
+                        print("No popup found, operation may have completed without dialog")
+                    except Exception as e:
+                        print(f"Error handling popup: {e}")
+                    
                         
                     return True
             except Exception as e:
@@ -723,6 +760,7 @@ def wait_until_output_video_stable(video_filename, stable_checks=3, check_interv
         if not os.path.exists(output_path):
             stable_count = 0
             last_size = -1
+            log(f"File không tồn tại: {output_path}")
         else:
             current_size = os.path.getsize(output_path)
             if current_size == last_size and current_size > 0:
