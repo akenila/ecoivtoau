@@ -972,7 +972,7 @@ def easyocr_and_drag_subtitle(rect):
     img_np = np.array(img)
 
     # Nhận diện text bằng EasyOCR
-    reader = easyocr.Reader(['en', 'vi', "ch_sim", "ch_tra"])
+    reader = easyocr.Reader(['en',"ch_sim"])
     results = reader.readtext(img_np)
 
     found = False
@@ -1104,7 +1104,7 @@ def easyocr_and_drag_subtitle_with_wider_box(rect, width_expand=80, retry_on_pop
     """
     img = ImageGrab.grab(bbox=(rect.left, rect.top, rect.right, rect.bottom))
     img_np = np.array(img)
-    reader = easyocr.Reader(['en', 'vi', "ch_sim", "ch_tra"])
+    reader = easyocr.Reader(['en',"ch_sim"])
     results = reader.readtext(img_np)
     rect_height = rect.height()
     lower_half_top = rect_height // 2
