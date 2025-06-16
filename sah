@@ -1,3 +1,20 @@
+def find_matching_srt(video_filename, srt_directory):
+    """
+    Tìm file SRT có tên bắt đầu chính xác bằng tên video (bao gồm cả đuôi .mp4)
+    và ký tự tiếp theo (nếu có) phải là khoảng trắng, dấu chấm, gạch dưới, hoặc tương tự.
+    """
+    for fname in os.listdir(srt_directory):
+        if fname.endswith('.srt') and fname.startswith(video_filename):
+            # Kiểm tra ký tự tiếp theo (nếu có)
+            next_char_index = len(video_filename)
+            if len(fname) == next_char_index + 4:  # chỉ đúng .srt, không có hậu tố
+                return os.path.join(srt_directory, fname)
+            elif len(fname) > next_char_index + 4:
+                next_char = fname[next_char_index]
+                if next_char in [' ', '.', '_', '-']:
+                    return os.path.join(srt_directory, fname)
+    return None
+# Function to find and click any element with text containing the specified text
 def find_and_click_element_with_text(window, text_to_find):
     # Print all controls to help with debugging
     print("Listing all controls in the application:")
@@ -695,7 +712,37 @@ def scan_directory_for_videos(directory):
         print(f"Error scanning directory {directory}: {e}")
     
     return videos
+def wait_until_output_video_stable(video_filename, stable_checks=3, check_interval=2, timeout=600):
+    """
+    Theo dõi file kết quả cho đến khi kích thước file không đổi trong stable_checks lần liên tiếp.
+    Trả về True nếu file ổn định, False nếu hết timeout.
+    """
+    video_name = os.path.splitext(video_filename)[0]
+    output_path = os.path.join(
+        ".", "AutoVoice", "AutoVoice", "video", video_name, f"result{video_name},mp4"
+    )
+    stable_count = 0
+    last_size = -1
+    waited = 0
 
+    while True:
+        if not os.path.exists(output_path):
+            stable_count = 0
+            last_size = -1
+        else:
+            current_size = os.path.getsize(output_path)
+            if current_size == last_size and current_size > 0:
+                stable_count += 1
+            else:
+                stable_count = 0
+            last_size = current_size
+            if stable_count >= stable_checks:
+                print(f"File kết quả đã ổn định: {output_path}")
+                return True
+        time.sleep(check_interval)
+        waited += check_interval
+    print(f"Hết thời gian chờ, file chưa ổn định: {output_path}")
+    return False
 def process_videos_with_keys(window, key_value_file, video_directory, srt_directory):
     video_directory = video_directory.replace('/', '\\')
     srt_directory = srt_directory.replace('/', '\\')
@@ -722,8 +769,8 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         print(f"\nProcessing video: {video_filename}")
         
         # Find corresponding SRT file
-        srt_filename = video_name_without_ext + ".srt"
-        srt_path = os.path.join(srt_directory, srt_filename).replace('/', '\\')
+        video_filename = os.path.basename(video_path)
+        srt_path = find_matching_srt(video_name_without_ext, srt_directory)
         
         if not os.path.exists(srt_path):
             print(f"SRT file not found: {srt_path}, skipping this video")
@@ -786,6 +833,8 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         # Wait between processing videos
         time.sleep(2)
         click_start_button(window)
+        print("Clicking start button to process video")
+        wait_until_output_video_stable(video_filename)
         print(f"Completed processing video: {video_filename}")
 def find_video_window(window):
     """
