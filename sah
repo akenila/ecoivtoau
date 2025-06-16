@@ -1265,28 +1265,43 @@ def log(msg):
         log_text.see(tk.END)
     print(msg)
 
+def select_folder_subprocess():
+    import subprocess
+    import tempfile
+    
+    # Create a temporary VBS script
+    vbs_file = tempfile.NamedTemporaryFile(delete=False, suffix='.vbs')
+    vbs_file.write(b'''
+    Set objShell = CreateObject("Shell.Application")
+    Set objFolder = objShell.BrowseForFolder(0, "Select Folder", 0)
+    If Not objFolder Is Nothing Then
+        WScript.Echo objFolder.Self.Path
+    End If
+    ''')
+    vbs_file.close()
+    
+    # Run the script
+    result = subprocess.run(['cscript', '//NoLogo', vbs_file.name], 
+                           capture_output=True, text=True)
+    
+    # Delete the temporary file
+    import os
+    os.unlink(vbs_file.name)
+    
+    # Return the selected path
+    if result.stdout.strip():
+        return result.stdout.strip()
+    return ""
+
 def select_video_folder():
-    folder = filedialog.askdirectory(title="Chọn thư mục video")
+    folder = select_folder_subprocess()
     if folder:
         video_folder_var.set(folder)
-        # Quét file video trên thread phụ để không block GUI
-        threading.Thread(target=scan_videos_and_log, args=(folder,), daemon=True).start()
-
-def scan_videos_and_log(folder):
-    videos = scan_directory_for_videos(folder)
-    log(f"Đã tìm thấy {len(videos)} video trong thư mục {folder}")
 
 def select_srt_folder():
-    folder = filedialog.askdirectory(title="Chọn thư mục SRT")
+    folder = select_folder_subprocess()
     if folder:
         srt_folder_var.set(folder)
-        # Nếu muốn quét SRT cũng làm tương tự
-        threading.Thread(target=scan_srts_and_log, args=(folder,), daemon=True).start()
-
-def scan_srts_and_log(folder):
-    count = len([f for f in os.listdir(folder) if f.endswith('.srt')])
-    log(f"Đã tìm thấy {count} file SRT trong thư mục {folder}")
-
 def save_input():
     # Lưu dữ liệu textbox và hai đường dẫn vào file config.json
     content = input_text.get("1.0", tk.END).strip()
@@ -1357,13 +1372,13 @@ root.title("AutoVoice GUI")
 # Video folder
 video_folder_var = tk.StringVar()
 tk.Label(root, text="Thư mục Video:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
-tk.Entry(root, textvariable=video_folder_var, width=40, state="readonly").grid(row=0, column=1, padx=5, pady=5)
+tk.Entry(root, textvariable=video_folder_var, width=40).grid(row=0, column=1, padx=5, pady=5)
 tk.Button(root, text="Chọn...", command=select_video_folder).grid(row=0, column=2, padx=5, pady=5)
 
 # SRT folder
 srt_folder_var = tk.StringVar()
 tk.Label(root, text="Thư mục SRT:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-tk.Entry(root, textvariable=srt_folder_var, width=40, state="readonly").grid(row=1, column=1, padx=5, pady=5)
+tk.Entry(root, textvariable=srt_folder_var, width=40).grid(row=1, column=1, padx=5, pady=5)
 tk.Button(root, text="Chọn...", command=select_srt_folder).grid(row=1, column=2, padx=5, pady=5)
 
 # Multiline input textbox with vertical scroll
