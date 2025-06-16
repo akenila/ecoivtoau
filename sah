@@ -1190,6 +1190,7 @@ def try_drag_slider_and_find_subtitle(video_frame, max_attempts=8, main_window=N
     if not slider:
         print("Không tìm thấy slider ngang trong khung video.")
         return
+    log(f"Slider ngang rect: {slider.rectangle()}")
 
     rect = slider.rectangle()
     width = rect.width()
