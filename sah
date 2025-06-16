@@ -1171,14 +1171,18 @@ def easyocr_and_drag_subtitle_with_wider_box(rect, width_expand=80, retry_on_pop
 
     log("Không tìm thấy subtitle ở nửa dưới bằng EasyOCR.")
     return False
-def try_drag_slider_and_find_subtitle(video_frame, max_attempts=3, main_window=None):
+def try_drag_slider_and_find_subtitle(video_frame, max_attempts=8, main_window=None):
     """
     Kéo slider ngang với các vị trí khác nhau, sau đó nhận diện subtitle.
     Nếu tìm thấy subtitle thì khoanh vùng, nếu không thì thử lại với vị trí khác.
     """
     slider = None
     for child in video_frame.descendants():
-        if child.friendly_class_name() == "Slider":
+        # Nếu là WindowSpecification thì chuyển sang wrapper_object
+        if hasattr(child, 'friendly_class_name') and child.friendly_class_name() == "Slider":
+            # Nếu là WindowSpecification, chuyển sang UIAWrapper
+            if hasattr(child, 'wrapper_object'):
+                child = child.wrapper_object()
             rect = child.rectangle()
             if rect.width() > rect.height():
                 slider = child
