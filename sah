@@ -1170,8 +1170,9 @@ def easyocr_and_drag_subtitle_with_wider_box(rect, width_expand=80, retry_on_pop
                             # Tìm các nút thường gặp
                             for btn_text in ["OK", "Đóng", "Close", "Xác nhận"]:
                                 try:
-                                    btn = dialog.child_window(title=btn_text, control_type="Button")
-                                    if btn.exists():
+                                    btn_spec = dialog.child_window(title=btn_text, control_type="Button")
+                                    if btn_spec.exists():
+                                        btn = btn_spec.wrapper_object()
                                         btn.click_input()
                                         print(f"Đã bấm nút {btn_text} để tắt popup Thông báo.")
                                 except Exception:
