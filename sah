@@ -468,7 +468,7 @@ def select_voice_by_number(window, number):
 
 # Example usage:
 
-def toggle_hide_old_subtitles(window, check=True, main_window=None):
+def toggle_hide_old_subtitles(window, check=True):
     dismiss_update_dialog(app)
     print(f"Looking for 'Che sub cũ' checkbox to {'check' if check else 'uncheck'} it")
     
@@ -493,34 +493,7 @@ def toggle_hide_old_subtitles(window, check=True, main_window=None):
                         print(f"Toggled 'Che sub cũ' checkbox to {'checked' if check else 'unchecked'}")
                     else:
                         print(f"'Che sub cũ' checkbox already in desired state")
-                    time.sleep(1)  # Wait for the toggle to take effect
-                    if main_window is not None:
-                        try:
-                            # Tìm tất cả control type Dialog có title Thông báo
-                            for ctrl in main_window.descendants():
-                                try:
-                                    if ctrl.friendly_class_name() == "Dialog" and ctrl.window_text() == "Thông báo":
-                                        dialog = ctrl
-                                        # Tìm các nút thường gặp
-                                        for btn_text in ["OK", "Đóng", "Close", "Xác nhận"]:
-                                            try:
-                                                btn = dialog.child_window(title=btn_text, control_type="Button")
-                                                if btn.exists():
-                                                    btn.click_input()
-                                                    print(f"Đã bấm nút {btn_text} để tắt popup Thông báo.")
-                                            except Exception:
-                                                continue
-                                        # Nếu không có nút, thử đóng dialog
-                                        dialog.close()
-                                        print("Đã đóng dialog Thông báo.")
-                                except Exception:
-                                    continue
-                        except Exception as e:
-                            print(f"Lỗi khi đóng popup Thông báo: {e}")
-                        
-                        print("No popup found, operation may have completed without dialog")
-                    
-                        
+                    time.sleep(1)  # Wait for the toggle to take effect                        
                     return True
             except Exception as e:
                 print(f"Error checking a checkbox: {e}")
@@ -561,31 +534,7 @@ def toggle_hide_old_subtitles(window, check=True, main_window=None):
                                 print(f"Toggled checkbox to {'checked' if check else 'unchecked'}")
                             else:
                                 print("Checkbox already in desired state")
-                            if main_window is not None:
-                                try:
-                                    # Tìm tất cả control type Dialog có title Thông báo
-                                    for ctrl in main_window.descendants():
-                                        try:
-                                            if ctrl.friendly_class_name() == "Dialog" and ctrl.window_text() == "Thông báo":
-                                                dialog = ctrl
-                                                # Tìm các nút thường gặp
-                                                for btn_text in ["OK", "Đóng", "Close", "Xác nhận"]:
-                                                    try:
-                                                        btn = dialog.child_window(title=btn_text, control_type="Button")
-                                                        if btn.exists():
-                                                            btn.click_input()
-                                                            print(f"Đã bấm nút {btn_text} để tắt popup Thông báo.")
-                                                    except Exception:
-                                                        continue
-                                                # Nếu không có nút, thử đóng dialog
-                                                dialog.close()
-                                                print("Đã đóng dialog Thông báo.")
-                                        except Exception:
-                                            continue
-                                except Exception as e:
-                                    print(f"Lỗi khi đóng popup Thông báo: {e}")
-                                
-                                print("No popup found, operation may have completed without dialog")
+
                             return True
             except Exception:
                 pass
@@ -859,8 +808,35 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         dismiss_update_dialog(app)
         # Check the "Che sub cũ" checkbox
         print("Checking 'Che sub cũ' checkbox")
-        toggle_hide_old_subtitles(window, check=True, main_window=window)
+        toggle_hide_old_subtitles(window, check=True)
         dismiss_update_dialog(app)
+        main_window = window
+        if main_window is not None:
+            try:
+                # Tìm tất cả control type Dialog có title Thông báo
+                for ctrl in main_window.descendants():
+                    try:
+                        if ctrl.friendly_class_name() == "Dialog" and ctrl.window_text() == "Thông báo":
+                            dialog = ctrl
+                            # Tìm các nút thường gặp
+                            for btn_text in ["OK", "Đóng", "Close", "Xác nhận"]:
+                                try:
+                                    btn = dialog.child_window(title=btn_text, control_type="Button")
+                                    if btn.exists():
+                                        btn.click_input()
+                                        print(f"Đã bấm nút {btn_text} để tắt popup Thông báo.")
+                                except Exception:
+                                    continue
+                            # Nếu không có nút, thử đóng dialog
+                            dialog.close()
+                            print("Đã đóng dialog Thông báo.")
+                    except Exception:
+                        continue
+            except Exception as e:
+                print(f"Lỗi khi đóng popup Thông báo: {e}")
+            
+            print("No popup found, operation may have completed without dialog")
+        
         # === Bổ sung: tìm khung video và khoanh vùng subtitle ===
         print("Tìm khung video và khoanh vùng subtitle...")
         candidates = find_video_window(window)
