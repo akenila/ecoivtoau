@@ -807,7 +807,7 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         
         dismiss_update_dialog(app)
         # Check the "Che sub cũ" checkbox
-        print("Checking 'Che sub cũ' checkbox")
+        log("Checking 'Che sub cũ' checkbox")
         toggle_hide_old_subtitles(window, check=True)
         dismiss_update_dialog(app)
         main_window = window
@@ -839,7 +839,7 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
             print("No popup found, operation may have completed without dialog")
         dismiss_update_dialog(app)
         # === Bổ sung: tìm khung video và khoanh vùng subtitle ===
-        print("Tìm khung video và khoanh vùng subtitle...")
+        log("Tìm khung video và khoanh vùng subtitle...")
         candidates = find_video_window(window)
         if candidates and len(candidates) >= 1:
             # Ưu tiên khung đầu tiên, hoặc bạn có thể chọn theo index khác nếu muốn
