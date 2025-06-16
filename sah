@@ -855,7 +855,7 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         candidates = find_video_window(window)
         if candidates and len(candidates) >= 1:
             # Ưu tiên khung đầu tiên, hoặc bạn có thể chọn theo index khác nếu muốn
-            try_drag_slider_and_find_subtitle(candidates[2])
+            try_drag_slider_and_find_subtitle(candidates[2], window)
         else:
             print("Không tìm thấy khung video để khoanh subtitle.")
 
@@ -869,45 +869,29 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         click_start_button(window)
         print("Clicking start button to process video")
         wait_until_output_video_stable(video_filename)
-        try:
-                        # Find popup dialog windows
-                        popup_windows = app.windows(visible_only=True)
-                        for popup in popup_windows:
-                            try:
-                                # Check if it's not the main window
-                                if popup != window:
-                                    popup_title = popup.window_text()
-                                    print(f"Found popup: '{popup_title}'")
-                                    
-                                    # Find and click OK or close button
-                                    # Try to find common button texts
-                                    for button_text in ["OK", "Ok", "Đồng ý", "Đóng", "Tắt"]:
-                                        try:
-                                            buttons = popup.descendants(title=button_text, control_type="Button")
-                                            if buttons:
-                                                ok_button = buttons[0]
-                                                print(f"Found '{button_text}' button in popup")
-                                                ok_button.click_input()
-                                                print("Clicked button to close popup")
-                                                time.sleep(0.5)
-                                                return True
-                                        except Exception as button_error:
-                                            print(f"Error finding '{button_text}' button: {button_error}")
-                                    
-                                    # If no specific button found, try to press Enter to close
-                                    print("No specific button found, trying Enter key")
-                                    popup.set_focus()
-                                    send_keys("{ENTER}")
-                                    time.sleep(0.5)
-                                    
-                                    return True
-                            except Exception as popup_error:
-                                print(f"Error processing popup window: {popup_error}")
-                        
-                        print("No popup found, operation may have completed without dialog")
-        except Exception as e:
-                        print(f"Error handling popup: {e}")
-                    
+        if main_window is not None:
+            try:
+                # Tìm tất cả control type Dialog có title Thông báo
+                for ctrl in main_window.descendants():
+                    try:
+                        if ctrl.friendly_class_name() == "Dialog" and ctrl.window_text() == "Thông báo":
+                            dialog = ctrl
+                            # Tìm các nút thường gặp
+                            for btn_text in ["OK", "Đóng", "Close", "Xác nhận"]:
+                                try:
+                                    btn = dialog.child_window(title=btn_text, control_type="Button")
+                                    if btn.exists():
+                                        btn.click_input()
+                                        print(f"Đã bấm nút {btn_text} để tắt popup Thông báo.")
+                                except Exception:
+                                    continue
+                            # Nếu không có nút, thử đóng dialog
+                            dialog.close()
+                            print("Đã đóng dialog Thông báo.")
+                    except Exception:
+                        continue
+            except Exception as e:
+                print(f"Lỗi khi đóng popup Thông báo: {e}")
         print(f"Completed processing video: {video_filename}")
 def find_video_window(window):
     """
@@ -1147,14 +1131,14 @@ def is_probably_subtitle(text):
         return False
     # Có thể bổ sung thêm các điều kiện khác nếu cần
     return True
-def easyocr_and_drag_subtitle_with_wider_box(rect, width_expand=80):
+def easyocr_and_drag_subtitle_with_wider_box(rect, width_expand=80, retry_on_popup=True, main_window=None):
     """
     Nhận diện subtitle ở nửa dưới bằng EasyOCR, khoanh vùng subtitle với chiều ngang mở rộng.
     Nếu subtitle có nhiều dòng, sẽ khoanh vùng bao trùm tất cả dòng.
     """
     img = ImageGrab.grab(bbox=(rect.left, rect.top, rect.right, rect.bottom))
     img_np = np.array(img)
-    reader = easyocr.Reader(['en', 'vi'])
+    reader = easyocr.Reader(['en', 'vi', "ch_sim", "ch_tra"])
     results = reader.readtext(img_np)
     rect_height = rect.height()
     lower_half_top = rect_height // 2
@@ -1186,12 +1170,41 @@ def easyocr_and_drag_subtitle_with_wider_box(rect, width_expand=80):
         move(coords=(abs_right, abs_bottom))
         time.sleep(0.2)
         release(button='left', coords=(abs_right, abs_bottom))
+        popup_found = False
+        if main_window is not None:
+            try:
+                # Tìm tất cả control type Dialog có title Thông báo
+                for ctrl in main_window.descendants():
+                    try:
+                        if ctrl.friendly_class_name() == "Dialog":
+                            dialog = ctrl
+                            # Tìm các nút thường gặp
+                            for btn_text in ["OK", "Đóng", "Close", "Xác nhận"]:
+                                try:
+                                    btn = dialog.child_window(title=btn_text, control_type="Button")
+                                    if btn.exists():
+                                        btn.click_input()
+                                        print(f"Đã bấm nút {btn_text} để tắt popup Thông báo.")
+                                except Exception:
+                                    continue
+                            # Nếu không có nút, thử đóng dialog
+                            dialog.close()
+                            popup_found = True
+                            print("Đã đóng dialog Thông báo.")
+                    except Exception:
+                        continue
+            except Exception as e:
+                print(f"Lỗi khi đóng popup Thông báo: {e}")
+
+        if popup_found and retry_on_popup and width_expand != 20:
+            print("Thử lại với width_expand=20")
+            return easyocr_and_drag_subtitle_with_wider_box(rect, width_expand=20, retry_on_popup=False, main_window=main_window)
         print("Đã khoanh vùng subtitle nhiều dòng.")
         return True
 
     print("Không tìm thấy subtitle ở nửa dưới bằng EasyOCR.")
     return False
-def try_drag_slider_and_find_subtitle(video_frame, max_attempts=3):
+def try_drag_slider_and_find_subtitle(video_frame, max_attempts=3, main_window=None):
     """
     Kéo slider ngang với các vị trí khác nhau, sau đó nhận diện subtitle.
     Nếu tìm thấy subtitle thì khoanh vùng, nếu không thì thử lại với vị trí khác.
@@ -1227,7 +1240,7 @@ def try_drag_slider_and_find_subtitle(video_frame, max_attempts=3):
 
         # Lấy rect khung video (giả sử là video_frame.rect)
         video_rect = video_frame.rectangle()
-        found = easyocr_and_drag_subtitle_with_wider_box(video_rect, width_expand=60)
+        found = easyocr_and_drag_subtitle_with_wider_box(video_rect, width_expand=60, main_window=main_window)
         if found:
             print("Đã tìm thấy subtitle, dừng thử lại slider.")
             return
