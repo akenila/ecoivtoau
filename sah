@@ -821,8 +821,9 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
                             # Tìm các nút thường gặp
                             for btn_text in ["OK", "Đóng", "Close", "Xác nhận"]:
                                 try:
-                                    btn = dialog.child_window(title=btn_text, control_type="Button")
-                                    if btn.exists():
+                                    btn_spec = dialog.child_window(title=btn_text, control_type="Button")
+                                    if btn_spec.exists():
+                                        btn = btn_spec.wrapper_object()
                                         btn.click_input()
                                         print(f"Đã bấm nút {btn_text} để tắt popup Thông báo.")
                                 except Exception:
@@ -836,7 +837,7 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
                 print(f"Lỗi khi đóng popup Thông báo: {e}")
             
             print("No popup found, operation may have completed without dialog")
-        
+        dismiss_update_dialog(app)
         # === Bổ sung: tìm khung video và khoanh vùng subtitle ===
         print("Tìm khung video và khoanh vùng subtitle...")
         candidates = find_video_window(window)
