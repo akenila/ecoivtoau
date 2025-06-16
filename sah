@@ -1192,8 +1192,7 @@ def try_drag_slider_and_find_subtitle(video_frame, max_attempts=8, main_window=N
         return
     log(f"Slider ngang rect: {slider.rectangle()}")
 
-    if hasattr(slider, "wrapper_object"):
-        slider = slider.wrapper_object()
+    slider = slider.wrapper_object()
 
     rect = slider.rectangle()
     width = rect.width()
