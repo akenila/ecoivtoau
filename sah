@@ -800,7 +800,7 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         video_path = video_path.replace('/', '\\')
         video_filename = os.path.basename(video_path)
         video_name_without_ext = os.path.splitext(video_filename)[0]
-        print(f"\nProcessing video: {video_filename}")
+        log(f"Processing video: {video_filename}")
         
         # Find corresponding SRT file
         video_filename = os.path.basename(video_path)
