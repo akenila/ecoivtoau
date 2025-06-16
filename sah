@@ -1269,11 +1269,23 @@ def select_video_folder():
     folder = filedialog.askdirectory(title="Chọn thư mục video")
     if folder:
         video_folder_var.set(folder)
+        # Quét file video trên thread phụ để không block GUI
+        threading.Thread(target=scan_videos_and_log, args=(folder,), daemon=True).start()
+
+def scan_videos_and_log(folder):
+    videos = scan_directory_for_videos(folder)
+    log(f"Đã tìm thấy {len(videos)} video trong thư mục {folder}")
 
 def select_srt_folder():
     folder = filedialog.askdirectory(title="Chọn thư mục SRT")
     if folder:
         srt_folder_var.set(folder)
+        # Nếu muốn quét SRT cũng làm tương tự
+        threading.Thread(target=scan_srts_and_log, args=(folder,), daemon=True).start()
+
+def scan_srts_and_log(folder):
+    count = len([f for f in os.listdir(folder) if f.endswith('.srt')])
+    log(f"Đã tìm thấy {count} file SRT trong thư mục {folder}")
 
 def save_input():
     # Lưu dữ liệu textbox và hai đường dẫn vào file config.json
