@@ -772,7 +772,7 @@ def wait_until_output_video_stable(video_filename, stable_checks=3, check_interv
             if stable_count >= stable_checks:
                 print(f"File kết quả đã ổn định: {output_path}")
                 return True
-        
+        dismiss_update_dialog(app)
         time.sleep(check_interval)
         waited += check_interval
     print(f"Hết thời gian chờ, file chưa ổn định: {output_path}")
