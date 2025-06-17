@@ -1566,7 +1566,7 @@ import time
 
 def close_completion_popup():
     """
-    Tìm và đóng popup "xong" không tiêu đề
+    Tìm và đóng popup "xong" không tiêu đề - CHỈ đóng popup xác nhận hoàn thành
     
     Returns:
         True nếu đóng thành công, False nếu không tìm thấy
@@ -1574,65 +1574,68 @@ def close_completion_popup():
     try:
         print("Đang tìm popup 'xong'...")
         
-        # Đợi popup xuất hiện (có thể điều chỉnh thời gian chờ nếu cần)
+        # Đợi popup xuất hiện
         time.sleep(1.5)
         
         # Tìm tất cả các cửa sổ
         windows = Desktop(backend="uia").windows()
         
-        # Tìm cửa sổ popup có chứa text "xong" và nút OK
         for window in windows:
             try:
-                # Tìm tất cả các control có text trong cửa sổ này
-                text_elements = window.descendants(control_type="Text") + window.descendants(control_type="Static")
+                # Bỏ qua cửa sổ không hiển thị hoặc có kích thước lớn
+                if not window.is_visible() or not window.is_dialog():
+                    continue
                 
-                # Kiểm tra xem có phần tử nào chứa chữ "xong" không
-                has_xong_text = False
+                # Lấy kích thước - popup "xong" thường nhỏ
+                rect = window.rectangle()
+                if rect.width() > 400 or rect.height() > 200:  # Popup hoàn thành thường nhỏ
+                    continue
+                
+                # Kiểm tra văn bản trong cửa sổ
+                window_text = window.window_text() if hasattr(window, 'window_text') else ""
+                popup_text = window_text.lower()
+                
+                # Tìm tất cả các phần tử văn bản
+                text_elements = window.descendants(control_type="Text") + window.descendants(control_type="Static")
                 for text_elem in text_elements:
                     try:
-                        text = text_elem.window_text() if hasattr(text_elem, 'window_text') else ""
-                        if "xong" in text.lower():
-                            has_xong_text = True
-                            break
+                        elem_text = text_elem.window_text() if hasattr(text_elem, 'window_text') else ""
+                        popup_text += " " + elem_text.lower()
                     except:
-                        continue
+                        pass
                 
-                # Nếu không tìm thấy text "xong", kiểm tra tên cửa sổ
-                if not has_xong_text:
-                    window_text = window.window_text() if hasattr(window, 'window_text') else ""
-                    if "xong" in window_text.lower():
-                        has_xong_text = True
+                # Kiểm tra xem có chứa "xong" và KHÔNG chứa từ khóa cập nhật
+                is_completion_popup = False
+                if "xong" in popup_text or "hoàn thành" in popup_text or "thành công" in popup_text:
+                    # Đảm bảo KHÔNG phải là dialog cập nhật
+                    update_keywords = ["update", "cập nhật", "upgrade", "version", "phiên bản"]
+                    if not any(keyword in popup_text for keyword in update_keywords):
+                        is_completion_popup = True
                 
-                if has_xong_text:
-                    # Tìm nút OK trong cửa sổ này
+                if is_completion_popup:
                     buttons = window.descendants(control_type="Button")
                     
+                    # Tìm nút OK/Đóng
                     for button in buttons:
                         try:
                             button_text = button.window_text() if hasattr(button, 'window_text') else ""
-                            if button_text.lower() == "ok":
+                            if button_text.lower() in ["ok", "đóng", "close"]:
                                 print("Tìm thấy popup 'xong' với nút OK. Đang click...")
                                 button.click()
-                                print("Đã click nút OK")
+                                print("Đã click nút OK trên popup xong")
                                 return True
                         except:
                             continue
                     
-                    # Nếu không tìm thấy nút có nhãn "OK", thử tìm nút duy nhất (thường là OK)
-                    if len(buttons) == 1:
-                        print("Tìm thấy popup 'xong' với một nút duy nhất. Đang click...")
+                    # Nếu không tìm thấy nút có nhãn rõ ràng, thử nút đầu tiên
+                    if len(buttons) > 0:
+                        print(f"Tìm thấy popup 'xong'. Đang click nút đầu tiên...")
                         buttons[0].click()
-                        print("Đã click nút")
+                        print("Đã click nút đầu tiên")
                         return True
             except Exception as inner_e:
-                print(f"Lỗi khi kiểm tra cửa sổ: {str(inner_e)}")
+                print(f"Lỗi khi kiểm tra popup: {str(inner_e)}")
                 continue
-        
-        # Thử phương pháp khác: sử dụng phím Enter để đóng dialog cơ bản
-        print("Không tìm thấy popup cụ thể. Thử gửi phím Enter...")
-        from pywinauto.keyboard import send_keys
-        send_keys("{ENTER}")
-        time.sleep(0.5)
         
         print("Không tìm thấy popup 'xong'")
         return False
@@ -1640,6 +1643,7 @@ def close_completion_popup():
     except Exception as e:
         print(f"Lỗi khi tìm và đóng popup 'xong': {str(e)}")
         return False
+
 def dismiss_update_dialog(app, timeout=3):
     import time
     try:
