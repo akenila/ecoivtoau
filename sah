@@ -1,3 +1,32 @@
+def clean_filename_for_result(original_filename):
+    """
+    Tạo tên file kết quả dựa trên tên gốc
+    - Giữ lại chữ và số
+    - Viết thường
+    - Thêm tiền tố "result_"
+    
+    Args:
+        original_filename: Tên file gốc
+        
+    Returns:
+        Tên file kết quả
+    """
+    # Xử lý tên file
+    base_name = os.path.basename(original_filename)
+    name_without_ext, ext = os.path.splitext(base_name)
+    
+    # Giữ lại chữ và số, viết thường
+    cleaned_name = re.sub(r'[^a-zA-Z0-9]', '', name_without_ext).lower()
+    
+    # Tạo tên file mới
+    result_filename = f"{cleaned_name}"
+    
+    print(f"Tên file gốc: {original_filename}")
+    print(f"Tên file kết quả: {result_filename}")
+    
+    return result_filename
+
+
 def find_matching_srt(video_filename, srt_directory):
     """
     Tìm file SRT có tên bắt đầu chính xác bằng tên video (bao gồm cả đuôi .mp4)
@@ -708,7 +737,7 @@ def wait_until_output_video_stable(video_filename, stable_checks=3, check_interv
     Trả về True nếu file ổn định, False nếu hết timeout.
     """
     log(f"Waiting for output video to stabilize: {video_filename}")
-    video_name = os.path.splitext(video_filename)[0]
+    video_name = clean_filename_for_result(video_filename)
     output_path = os.path.join(
         ".", "AutoVoice", "AutoVoice", "video", video_name, f"result{video_name}.mp4"
     )
@@ -857,7 +886,7 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         click_start_button(window)
         print("Clicking start button to process video")
         wait_until_output_video_stable(video_filename)
-        
+        close_completion_popup()
         print(f"Completed processing video: {video_filename}")
 def find_video_window(window):
     """
@@ -1452,6 +1481,86 @@ def close_update_popup(timeout=10):
             time.sleep(1)
     print("Không phát hiện popup update hoặc không thể tắt.")
     return False
+
+from pywinauto import Desktop
+import time
+
+def close_completion_popup():
+    """
+    Tìm và đóng popup "xong" không tiêu đề
+    
+    Returns:
+        True nếu đóng thành công, False nếu không tìm thấy
+    """
+    try:
+        print("Đang tìm popup 'xong'...")
+        
+        # Đợi popup xuất hiện (có thể điều chỉnh thời gian chờ nếu cần)
+        time.sleep(1.5)
+        
+        # Tìm tất cả các cửa sổ
+        windows = Desktop(backend="uia").windows()
+        
+        # Tìm cửa sổ popup có chứa text "xong" và nút OK
+        for window in windows:
+            try:
+                # Tìm tất cả các control có text trong cửa sổ này
+                text_elements = window.descendants(control_type="Text") + window.descendants(control_type="Static")
+                
+                # Kiểm tra xem có phần tử nào chứa chữ "xong" không
+                has_xong_text = False
+                for text_elem in text_elements:
+                    try:
+                        text = text_elem.window_text() if hasattr(text_elem, 'window_text') else ""
+                        if "xong" in text.lower():
+                            has_xong_text = True
+                            break
+                    except:
+                        continue
+                
+                # Nếu không tìm thấy text "xong", kiểm tra tên cửa sổ
+                if not has_xong_text:
+                    window_text = window.window_text() if hasattr(window, 'window_text') else ""
+                    if "xong" in window_text.lower():
+                        has_xong_text = True
+                
+                if has_xong_text:
+                    # Tìm nút OK trong cửa sổ này
+                    buttons = window.descendants(control_type="Button")
+                    
+                    for button in buttons:
+                        try:
+                            button_text = button.window_text() if hasattr(button, 'window_text') else ""
+                            if button_text.lower() == "ok":
+                                print("Tìm thấy popup 'xong' với nút OK. Đang click...")
+                                button.click()
+                                print("Đã click nút OK")
+                                return True
+                        except:
+                            continue
+                    
+                    # Nếu không tìm thấy nút có nhãn "OK", thử tìm nút duy nhất (thường là OK)
+                    if len(buttons) == 1:
+                        print("Tìm thấy popup 'xong' với một nút duy nhất. Đang click...")
+                        buttons[0].click()
+                        print("Đã click nút")
+                        return True
+            except Exception as inner_e:
+                print(f"Lỗi khi kiểm tra cửa sổ: {str(inner_e)}")
+                continue
+        
+        # Thử phương pháp khác: sử dụng phím Enter để đóng dialog cơ bản
+        print("Không tìm thấy popup cụ thể. Thử gửi phím Enter...")
+        from pywinauto.keyboard import send_keys
+        send_keys("{ENTER}")
+        time.sleep(0.5)
+        
+        print("Không tìm thấy popup 'xong'")
+        return False
+        
+    except Exception as e:
+        print(f"Lỗi khi tìm và đóng popup 'xong': {str(e)}")
+        return False
 def dismiss_update_dialog(app, timeout=3):
     import time
     try:
