@@ -1101,6 +1101,52 @@ def is_probably_subtitle(text):
         return False
     # Có thể bổ sung thêm các điều kiện khác nếu cần
     return True
+
+def improved_drag(start_x, start_y, end_x, end_y, duration=1.0, steps=50):
+    """
+    Thực hiện hành động kéo chuột từ (start_x, start_y) đến (end_x, end_y) 
+    với nhiều bước trung gian hơn và thời gian chờ đủ.
+    
+    Args:
+        start_x, start_y: Tọa độ điểm bắt đầu
+        end_x, end_y: Tọa độ điểm kết thúc
+        duration: Tổng thời gian kéo (giây)
+        steps: Số bước trung gian
+    """
+    import time
+    import numpy as np
+    
+    # Di chuyển đến vị trí bắt đầu và đảm bảo chuột đã ở đúng vị trí
+    move(coords=(start_x, start_y))
+    time.sleep(0.2)  # Chờ chuột đến đúng vị trí
+    
+    # Nhấn chuột trái
+    press(button='left', coords=(start_x, start_y))
+    time.sleep(0.2)  # Chờ sự kiện press được xử lý
+    
+    # Tạo đường cong tự nhiên hơn cho chuyển động chuột
+    # Sử dụng hàm easing để làm cho chuyển động mượt hơn
+    def ease_out_quad(t):
+        return t * (2 - t)
+    
+    for i in range(1, steps + 1):
+        t = i / steps
+        # Áp dụng easing function để chuyển động tự nhiên hơn
+        t_eased = ease_out_quad(t)
+        
+        current_x = int(start_x + (end_x - start_x) * t_eased)
+        current_y = int(start_y + (end_y - start_y) * t_eased)
+        
+        move(coords=(current_x, current_y))
+        # Phân bố thời gian chờ giữa các bước
+        time.sleep(duration / steps)
+    
+    # Thêm delay trước khi thả chuột
+    time.sleep(0.2)
+    
+    # Thả chuột
+    release(button='left', coords=(end_x, end_y))
+    time.sleep(0.3)  # Chờ để sự kiện được xử lý hoàn toàn
 def easyocr_and_drag_subtitle_with_wider_box(rect, width_expand=80, retry_on_popup=True, main_window=None):
     """
     Nhận diện subtitle ở nửa dưới bằng EasyOCR, khoanh vùng subtitle với chiều ngang mở rộng.
@@ -1494,7 +1540,7 @@ def check_languages():
             messagebox.showinfo("Thành công", f"Ngôn ngữ '{lang1}' hoạt động tốt với EasyOCR!")
         
         # Hiển thị các mã ngôn ngữ được hỗ trợ
-        supported = ", ".join(reader.lang_list)
+        supported = ", ".join(easyocr.LANGUAGES.keys())
         log(f"Các ngôn ngữ được hỗ trợ: {supported}")
         
     except Exception as e:
