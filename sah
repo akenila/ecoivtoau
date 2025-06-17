@@ -238,67 +238,89 @@ def enter_text_for_srt_path(window, srt_path):
     except Exception as e:
         print(f"Lỗi khi thao tác với nút 'Chọn' SRT: {e}")
         return False
-def select_voice_from_combobox(window, voice_option):
-    print(f"Looking for the combobox associated with 'Giọng đọc' to select '{voice_option}'")
-    
-    # Print all controls to help with debugging
-    window.print_control_identifiers()
+import time
+from pywinauto.keyboard import send_keys
+import pyperclip
+
+def select_voice_from_dropdown(window, keyword):
+    dismiss_update_dialog(app)
+    print(f"Selecting voice with keyword '{keyword}' using text entry method")
     
     try:
-        # First find the label element
+        # Find the voice combobox near the "Giọng đọc" label
         label = window.child_window(title="Giọng đọc", control_type="Text")
-        print("Found the 'Giọng đọc' label")
-        
-        # Get label's rectangle
         label_rect = label.rectangle()
         
-        # Find all combo box controls in the window
+        # Find combobox near label
         combo_boxes = window.descendants(control_type="ComboBox")
+        target_combo = None
         
-        # Look for combo box controls that are positioned near the label
         for combo in combo_boxes:
             combo_rect = combo.rectangle()
-            
-            # Check if combo box is to the right or below the label
             if (combo_rect.left >= label_rect.left and 
-                abs(combo_rect.top - label_rect.top) < 50):  # within 50 pixels vertically
-                
-                print(f"Found combobox near 'Giọng đọc' label")
-                
-                # Click the combo box to open the dropdown
-                combo.click_input()
-                time.sleep(1)  # Wait for dropdown to appear
-                
-                # Now try to find and click the specified option
-                try:
-                    # Find all list items in the dropdown
-                    dropdown_items = window.descendants(control_type="ListItem")
-                    
-                    for item in dropdown_items:
-                        try:
-                            item_text = item.window_text()
-                            print(f"Dropdown option: '{item_text}'")
-                            if voice_option.lower() in item_text.lower():
-                                print(f"Found matching option '{item_text}' in dropdown")
-                                item.click_input()
-                                print(f"Selected '{item_text}' from the combobox")
-                                return True
-                        except Exception as e:
-                            pass
-                    
-                    print(f"Could not find option '{voice_option}' in the dropdown")
-                    # Click somewhere else to close the dropdown without making a selection
-                    label.click_input()
-                except Exception as e:
-                    print(f"Error while trying to select from dropdown: {e}")
-                
-                return False
+                abs(combo_rect.top - label_rect.top) < 50):
+                target_combo = combo
+                print("Found voice combobox")
+                break
         
-        print("Could not find a combobox near the 'Giọng đọc' label")
+        if not target_combo:
+            print("Could not find voice combobox")
+            return False
+        
+        # Click the combobox to focus it
+        target_combo.click_input()
+        time.sleep(0.5)
+        
+        # Clear existing text with Ctrl+A and Delete
+        send_keys("^a{DELETE}")
+        time.sleep(0.5)
+        
+        # Type the keyword
+        target_combo.type_keys(keyword)
+        print(f"Entered keyword: '{keyword}'")
+        time.sleep(0.5)
+        
+        # Click dropdown button
+        combo_rect = target_combo.rectangle()
+        dropdown_button_width = 20
+        dropdown_x = combo_rect.right - dropdown_button_width//2
+        dropdown_y = combo_rect.top + combo_rect.height()//2
+        
+        from pywinauto.mouse import click
+        click(button='left', coords=(dropdown_x, dropdown_y))
+        time.sleep(1)  # Wait for dropdown to open
+        
+        # Find matching item in dropdown
+        dropdown_items = window.descendants(control_type="ListItem")
+        
+        print(f"Searching for '{keyword}' in {len(dropdown_items)} dropdown options...")
+        
+        for item in dropdown_items:
+            try:
+                item_text = item.window_text()
+                print(f"Dropdown option: '{item_text}'")
+                
+                # Case-insensitive search
+                if keyword.lower() in item_text.lower():
+                    print(f"Found matching voice: '{item_text}'")
+                    
+                    # Click the item
+                    item.click_input()
+                    print(f"Selected voice: '{item_text}'")
+                    return True
+            except Exception as e:
+                pass
+        
+        # If no match found in dropdown
+        print(f"No voice matching '{keyword}' found in dropdown")
+        send_keys("{ESC}")  # Close dropdown
+        return False
+        
     except Exception as e:
-        print(f"Error while looking for voice combobox: {e}")
-    
-    return False
+        print(f"Error selecting voice with keyword: {e}")
+        # Try to close dropdown if open
+        send_keys("{ESC}")
+        return False
 
 def print_all_voice_combobox_options(window):
     print("Printing all options in the combobox associated with 'Giọng đọc'")
@@ -816,7 +838,7 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         dismiss_update_dialog(app)
         # Select voice based on the value (voice number)
         print(f"Selecting voice with number {matched_value}")
-        if not select_voice_by_number(window, matched_value):
+        if not select_voice_from_dropdown(window, matched_value):
             print(f"Failed to select voice, skipping this video")
             continue
         dismiss_update_dialog(app)
