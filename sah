@@ -1399,7 +1399,7 @@ def try_drag_slider_and_find_subtitle(video_frame, max_attempts=8, main_window=N
 
         # Lấy rect khung video (giả sử là video_frame.rect)
         video_rect = video_frame.rectangle()
-        found = easyocr_and_drag_subtitle_with_wider_box(video_rect, width_expand=60, main_window=main_window)
+        found = easyocr_and_drag_subtitle_with_wider_box(video_rect, expand_width=60, main_window=main_window)
         if found:
             log("Đã tìm thấy subtitle, dừng thử lại slider.")
             return
