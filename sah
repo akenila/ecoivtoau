@@ -813,7 +813,13 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         if not matched_key:
             print(f"No key match found for {video_filename}, skipping")
             continue
-        
+        dismiss_update_dialog(app)
+        # Select voice based on the value (voice number)
+        print(f"Selecting voice with number {matched_value}")
+        if not select_voice_by_number(window, matched_value):
+            print(f"Failed to select voice, skipping this video")
+            continue
+        dismiss_update_dialog(app)
         # Enter the video path
         print(f"Entering video path: {video_path}")
         if not enter_text_for_video_path(window, video_path):
@@ -825,13 +831,6 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         print(f"Entering SRT path: {srt_path}")
         if not enter_text_for_srt_path(window, srt_path):
             print(f"Failed to enter SRT path, skipping this video")
-            continue
-        
-        dismiss_update_dialog(app)
-        # Select voice based on the value (voice number)
-        print(f"Selecting voice with number {matched_value}")
-        if not select_voice_by_number(window, matched_value):
-            print(f"Failed to select voice, skipping this video")
             continue
         
         dismiss_update_dialog(app)
