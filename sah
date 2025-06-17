@@ -883,9 +883,12 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         
         # Wait between processing videos
         time.sleep(2)
+        
         click_start_button(window)
         print("Clicking start button to process video")
         wait_until_output_video_stable(video_filename)
+        close_explorer_windows()
+        time.sleep(1)  # Wait for processing to complete
         close_completion_popup()
         print(f"Completed processing video: {video_filename}")
 def find_video_window(window):
@@ -1236,7 +1239,82 @@ def click_upper_half_of_video_frame(video_frame, main_window):
     except Exception as e:
         print(f"Lỗi khi click vào nửa trên của video: {str(e)}")
         return False
+    
+from pywinauto import Desktop
+import time
+import os
+
+def close_explorer_windows(result_folder=None):
+    """
+    Phát hiện và đóng các cửa sổ File Explorer, đặc biệt là cửa sổ đang mở thư mục kết quả
+    
+    Args:
+        result_folder: Đường dẫn thư mục kết quả (nếu có)
+        
+    Returns:
+        True nếu đóng thành công ít nhất một cửa sổ, False nếu không
+    """
+    try:
+        print("Đang tìm và đóng cửa sổ File Explorer...")
+        
+        # Chuẩn hóa đường dẫn thư mục kết quả nếu có
+        if result_folder:
+            result_folder = os.path.normpath(result_folder).lower()
+        
+        # Tìm tất cả các cửa sổ
+        windows = Desktop(backend="uia").windows()
+        
+        # Đếm số cửa sổ đã đóng
+        closed_count = 0
+        
+        for window in windows:
+            try:
+                # Lấy tiêu đề cửa sổ
+                window_title = window.window_text() if hasattr(window, 'window_text') else ""
+                
+                # Kiểm tra xem đây có phải cửa sổ Explorer không
+                is_explorer = False
+                
+                # Kiểm tra cửa sổ có phải Explorer bằng tiêu đề
+                if "file explorer" in window_title.lower() or "explorer" in window_title.lower():
+                    is_explorer = True
+                
+                # Kiểm tra xem cửa sổ có đang mở thư mục kết quả không
+                if result_folder and result_folder in window_title.lower():
+                    is_explorer = True
+                
+                # Kiểm tra thêm bằng cách xem có thanh Address Bar không
+                try:
+                    address_bars = window.descendants(control_type="Edit", class_name="Edit")
+                    for bar in address_bars:
+                        if "address" in bar.element_info.name.lower():
+                            is_explorer = True
+                            break
+                except:
+                    pass
+                
+                # Nếu là cửa sổ Explorer, đóng nó
+                if is_explorer:
+                    print(f"Tìm thấy cửa sổ Explorer: '{window_title}'. Đang đóng...")
+                    window.close()
+                    closed_count += 1
+                    time.sleep(0.5)  # Đợi để đảm bảo cửa sổ được đóng
+            except Exception as inner_e:
+                print(f"Lỗi khi kiểm tra/đóng cửa sổ: {str(inner_e)}")
+                continue
+        
+        if closed_count > 0:
+            print(f"Đã đóng {closed_count} cửa sổ File Explorer")
+            return True
+        else:
+            print("Không tìm thấy cửa sổ File Explorer nào để đóng")
+            return False
+        
+    except Exception as e:
+        print(f"Lỗi khi tìm và đóng cửa sổ File Explorer: {str(e)}")
+        return False
 def easyocr_and_drag_subtitle_with_wider_box(video_frame, expand_width=40, save_debug_image=False, main_window=None):
+    click_upper_half_of_video_frame(video_frame, main_window)
     print("Tìm text gần trung tâm khung hình nhất...")
     
     # Lấy rectangle của khung video
@@ -1379,7 +1457,6 @@ def easyocr_and_drag_subtitle_with_wider_box(video_frame, expand_width=40, save_
             log(f"Lỗi khi đóng popup Thông báo: {e}")
 
     if popup_found and expand_width != 20:
-        click_upper_half_of_video_frame(video_frame, main_window)
         log("Thử lại với width_expand giảm 20")
         return easyocr_and_drag_subtitle_with_wider_box(rect, expand_width=expand_width-20, main_window=main_window)
     log("Đã khoanh vùng subtitle nhiều dòng.")
@@ -1703,7 +1780,7 @@ def load_config():
             input_text.delete("1.0", tk.END)
             if lines:
                 input_text.insert(tk.END, "\n".join(lines))
-
+checking = False
 def start_action():
     # Lấy dữ liệu từ GUI
     key_value_lines = input_text.get("1.0", tk.END).strip().splitlines()
@@ -1717,10 +1794,16 @@ def start_action():
     if not key_value_pairs or not video_folder or not srt_folder:
         messagebox.showerror("Lỗi", "Vui lòng nhập đủ thông tin!")
         return
-
+    def run_check_update():
+        global app, log_text, main_window, checking
+        while checking:
+            dismiss_update_dialog(app)
+            time.sleep(5)  # Kiểm tra mỗi 5 giây
+    # Chạy kiểm tra cập nhật ở thread khác
     # Chạy automation ở thread khác để không block GUI
     def run_automation():
-        global app, log_text, main_window
+        global app, log_text, main_window, checking
+        checking = True
         try:
             log("Bắt đầu tự động hóa AutoVoice...")
             app_path = r".\AutoVoice\AutoVoice\AutoVoice.exe"
@@ -1740,6 +1823,7 @@ def start_action():
             log(f"Lỗi: {e}")
 
     threading.Thread(target=run_automation, daemon=True).start()
+    threading.Thread(target=run_check_update, daemon=True).start()
 
 def stop_action():
     messagebox.showinfo("Thông báo", "Chức năng dừng chưa được hỗ trợ.")
