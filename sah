@@ -972,7 +972,11 @@ def easyocr_and_drag_subtitle(rect):
     img_np = np.array(img)
 
     # Nhận diện text bằng EasyOCR
-    reader = easyocr.Reader(['en',"ch_sim"])
+    languages = [lang1_var.get()]
+    if lang2_var.get().strip():
+        languages.append(lang2_var.get())
+    
+    reader = easyocr.Reader(languages)
     results = reader.readtext(img_np)
 
     found = False
@@ -1104,7 +1108,11 @@ def easyocr_and_drag_subtitle_with_wider_box(rect, width_expand=80, retry_on_pop
     """
     img = ImageGrab.grab(bbox=(rect.left, rect.top, rect.right, rect.bottom))
     img_np = np.array(img)
-    reader = easyocr.Reader(['en',"ch_sim"])
+    languages = [lang1_var.get()]
+    if lang2_var.get().strip():
+        languages.append(lang2_var.get())
+    
+    reader = easyocr.Reader(languages)
     results = reader.readtext(img_np)
     rect_height = rect.height()
     lower_half_top = rect_height // 2
@@ -1371,18 +1379,32 @@ def select_srt_folder():
     if folder:
         srt_folder_var.set(folder)
 def save_input():
-    # Lưu dữ liệu textbox và hai đường dẫn vào file config.json
+    # Lưu dữ liệu textbox, hai đường dẫn và ngôn ngữ vào file config.json
     content = input_text.get("1.0", tk.END).strip()
     data = {
         "video_folder": video_folder_var.get(),
         "srt_folder": srt_folder_var.get(),
-        "lines": content.splitlines()
+        "lines": content.splitlines(),
+        "ocr_lang1": lang1_var.get(),
+        "ocr_lang2": lang2_var.get()
     }
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     print("Đã lưu dữ liệu vào", CONFIG_FILE)
     messagebox.showinfo("Thông báo", "Lưu dữ liệu thành công!")
 
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            video_folder_var.set(data.get("video_folder", ""))
+            srt_folder_var.set(data.get("srt_folder", ""))
+            lang1_var.set(data.get("ocr_lang1", "en"))
+            lang2_var.set(data.get("ocr_lang2", "ch_sim"))
+            lines = data.get("lines", [])
+            input_text.delete("1.0", tk.END)
+            if lines:
+                input_text.insert(tk.END, "\n".join(lines))
 def load_config():
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -1448,22 +1470,65 @@ srt_folder_var = tk.StringVar()
 tk.Label(root, text="Thư mục SRT:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
 tk.Entry(root, textvariable=srt_folder_var, width=40).grid(row=1, column=1, padx=5, pady=5)
 tk.Button(root, text="Chọn...", command=select_srt_folder).grid(row=1, column=2, padx=5, pady=5)
+def check_languages():
+    """
+    Kiểm tra xem 2 ngôn ngữ đã nhập có thể sử dụng với EasyOCR và cùng nhau không
+    """
+    lang1 = lang1_var.get().strip()
+    lang2 = lang2_var.get().strip()
+    
+    if not lang1:
+        messagebox.showerror("Lỗi", "Vui lòng nhập ít nhất một ngôn ngữ!")
+        return
+    
+    log(f"Đang kiểm tra ngôn ngữ: {lang1}" + (f", {lang2}" if lang2 else ""))
+    
+    try:
+        # Kiểm tra ngôn ngữ với EasyOCR
+        import easyocr
+        if lang2:
+            reader = easyocr.Reader([lang1, lang2])
+            messagebox.showinfo("Thành công", f"Các ngôn ngữ '{lang1}' và '{lang2}' hoạt động tốt với EasyOCR!")
+        else:
+            reader = easyocr.Reader([lang1])
+            messagebox.showinfo("Thành công", f"Ngôn ngữ '{lang1}' hoạt động tốt với EasyOCR!")
+        
+        # Hiển thị các mã ngôn ngữ được hỗ trợ
+        supported = ", ".join(reader.lang_list)
+        log(f"Các ngôn ngữ được hỗ trợ: {supported}")
+        
+    except Exception as e:
+        messagebox.showerror("Lỗi", f"Không thể sử dụng ngôn ngữ: {e}")
+        log(f"Lỗi khi kiểm tra ngôn ngữ: {e}")
+# Thêm vào phần khai báo biến (trước root.mainloop())
+lang1_var = tk.StringVar(value="en")  # Mặc định là tiếng Anh
+lang2_var = tk.StringVar(value="ch_sim")  # Mặc định là tiếng Trung giản thể
+# Thêm vào sau phần SRT folder (row 1), trước phần input_text
+# EasyOCR languages
+# Thêm vào sau phần SRT folder (row 1), trước phần input_text
+# EasyOCR languages
+tk.Label(root, text="Ngôn ngữ OCR 1:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
+tk.Entry(root, textvariable=lang1_var, width=10).grid(row=2, column=1, sticky="w", padx=5, pady=5)
 
-# Multiline input textbox with vertical scroll
-tk.Label(root, text="Nhập nội dung:").grid(row=2, column=0, sticky="nw", padx=5, pady=5)
+tk.Label(root, text="Ngôn ngữ OCR 2:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
+tk.Entry(root, textvariable=lang2_var, width=10).grid(row=3, column=1, sticky="w", padx=5, pady=5)
+
+tk.Button(root, text="Kiểm tra ngôn ngữ", command=check_languages).grid(row=3, column=2, padx=5, pady=5)
+
+# Dịch các hàng khác xuống
+tk.Label(root, text="Nhập nội dung:").grid(row=4, column=0, sticky="nw", padx=5, pady=5)
 input_text = scrolledtext.ScrolledText(root, width=50, height=10)
-input_text.grid(row=2, column=1, columnspan=2, padx=5, pady=5, sticky="w")
+input_text.grid(row=4, column=1, columnspan=2, padx=5, pady=5, sticky="w")
 
 # Buttons
-tk.Button(root, text="Lưu", width=10, command=save_input).grid(row=3, column=0, padx=5, pady=10)
-tk.Button(root, text="Start", width=10, command=start_action).grid(row=3, column=1, padx=5, pady=10, sticky="w")
-tk.Button(root, text="Stop", width=10, command=stop_action).grid(row=3, column=2, padx=5, pady=10, sticky="w")
+tk.Button(root, text="Lưu", width=10, command=save_input).grid(row=5, column=0, padx=5, pady=10)
+tk.Button(root, text="Start", width=10, command=start_action).grid(row=5, column=1, padx=5, pady=10, sticky="w")
+tk.Button(root, text="Stop", width=10, command=stop_action).grid(row=5, column=2, padx=5, pady=10, sticky="w")
 
 # Thêm khung log trạng thái
-tk.Label(root, text="Log trạng thái:").grid(row=4, column=0, sticky="nw", padx=5, pady=5)
+tk.Label(root, text="Log trạng thái:").grid(row=6, column=0, sticky="nw", padx=5, pady=5)
 log_text = scrolledtext.ScrolledText(root, width=50, height=10, state="normal")
-log_text.grid(row=4, column=1, columnspan=2, padx=5, pady=5, sticky="w")
-
+log_text.grid(row=6, column=1, columnspan=2, padx=5, pady=5, sticky="w")
 # Load config khi mở tool
 load_config()
 
