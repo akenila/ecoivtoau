@@ -1147,50 +1147,36 @@ def improved_drag(start_x, start_y, end_x, end_y, duration=1.0, steps=50):
     # Thả chuột
     release(button='left', coords=(end_x, end_y))
     time.sleep(0.3)  # Chờ để sự kiện được xử lý hoàn toàn
-def easyocr_and_drag_subtitle_with_wider_box(rect, width_expand=80, retry_on_popup=True, main_window=None):
-    """
-    Nhận diện subtitle ở nửa dưới bằng EasyOCR, khoanh vùng subtitle với chiều ngang mở rộng.
-    Nếu subtitle có nhiều dòng, sẽ khoanh vùng bao trùm tất cả dòng.
-    """
-    img = ImageGrab.grab(bbox=(rect.left, rect.top, rect.right, rect.bottom))
-    img_np = np.array(img)
-    languages = [lang1_var.get()]
-    if lang2_var.get().strip():
-        languages.append(lang2_var.get())
-    
-    reader = easyocr.Reader(languages)
-    results = reader.readtext(img_np)
-    rect_height = rect.height()
-    lower_half_top = rect_height // 2
-
-    # Gom các bbox subtitle ở nửa dưới
-    subtitle_bboxes = []
-    for (bbox, text, conf) in results:
-        y_coords = [point[1] for point in bbox]
-        y_center = int(sum(y_coords) / 4)
-        if y_center >= lower_half_top and is_probably_subtitle(text):
-            subtitle_bboxes.append(bbox)
-            log(f"Subtitle OCR: '{text}' | bbox: {bbox} | conf: {conf}")
-
-    if subtitle_bboxes:
-        # Tìm bbox bao trùm tất cả dòng subtitle
-        x_min = min(int(min([p[0] for p in bbox])) for bbox in subtitle_bboxes)
-        y_min = min(int(min([p[1] for p in bbox])) for bbox in subtitle_bboxes)
-        x_max = max(int(max([p[0] for p in bbox])) for bbox in subtitle_bboxes)
-        y_max = max(int(max([p[1] for p in bbox])) for bbox in subtitle_bboxes)
-        # Mở rộng chiều ngang
-        abs_left = max(rect.left + x_min - width_expand, rect.left)
-        abs_top = rect.top + y_min
-        abs_right = min(rect.left + x_max + width_expand, rect.right)
-        abs_bottom = rect.top + y_max
-        # Kéo chuột quanh vùng subtitle mở rộng
-        move(coords=(abs_left, abs_top))
-        press(button='left', coords=(abs_left, abs_top))
-        time.sleep(0.2)
-        move(coords=(abs_right, abs_bottom))
-        time.sleep(0.2)
-        release(button='left', coords=(abs_right, abs_bottom))
-        popup_found = False
+import numpy as np
+from PIL import ImageGrab, Image, ImageDraw
+from pywinauto.mouse import move, press, release
+import time
+import easyocr
+import os
+from datetime import datetime
+def click_upper_half_of_video_frame(video_frame, main_window):
+    try:
+        # Lấy rectangle của khung video
+        rect = video_frame
+        
+        # Tính toán nửa trên của khung video
+        upper_half_top = rect.top
+        upper_half_bottom = rect.top + rect.height() // 2
+        
+        # Chọn một điểm ngẫu nhiên trong nửa trên
+        random_x = rect.left + random.randint(rect.width() // 4, rect.width() * 3 // 4)
+        random_y = random.randint(upper_half_top + 10, upper_half_bottom - 10)
+        
+        print(f"Click vào điểm ngẫu nhiên nửa trên: ({random_x}, {random_y})")
+        
+        # Click vào điểm ngẫu nhiên
+        move(coords=(random_x, random_y))
+        click(button='left', coords=(random_x, random_y))
+        
+        # Đợi một chút để popup có thể xuất hiện
+        time.sleep(0.8)
+        
+        # Xử lý popup nếu xuất hiện
         if main_window is not None:
             try:
                 # Tìm tất cả control type Dialog có title Thông báo
@@ -1216,15 +1202,162 @@ def easyocr_and_drag_subtitle_with_wider_box(rect, width_expand=80, retry_on_pop
                         continue
             except Exception as e:
                 log(f"Lỗi khi đóng popup Thông báo: {e}")
-
-        if popup_found and retry_on_popup and width_expand != 20:
-            log("Thử lại với width_expand=20")
-            return easyocr_and_drag_subtitle_with_wider_box(rect, width_expand=20, retry_on_popup=False, main_window=main_window)
-        log("Đã khoanh vùng subtitle nhiều dòng.")
+        
         return True
+    except Exception as e:
+        print(f"Lỗi khi click vào nửa trên của video: {str(e)}")
+        return False
+def easyocr_and_drag_subtitle_with_wider_box(video_frame, expand_width=40, save_debug_image=False, main_window=None):
+    print("Tìm text gần trung tâm khung hình nhất...")
+    
+    # Lấy rectangle của khung video
+    rect = video_frame
+    
+    # Chụp ảnh toàn bộ khung video
+    img = ImageGrab.grab(bbox=(rect.left, rect.top, rect.right, rect.bottom))
+    img_np = np.array(img)
+    
+    # Tính toán tọa độ trung tâm khung hình
+    center_x = rect.width() // 2
+    center_y = rect.height() // 2
+    
+    # Sử dụng EasyOCR để phát hiện tất cả text trong khung
+    reader = easyocr.Reader([])  # Thêm nhiều ngôn ngữ để nhận diện đa dạng
+    results = reader.readtext(img_np)
+    
+    if not results:
+        print("Không phát hiện text nào trong khung video")
+        return False
+    
+    # Tạo hình ảnh debug nếu được yêu cầu
+    if save_debug_image:
+        debug_img = img.copy()
+        draw = ImageDraw.Draw(debug_img)
+        # Vẽ điểm trung tâm
+        draw.ellipse([(center_x-5, center_y-5), (center_x+5, center_y+5)], 
+                     fill=(255, 0, 0), outline=(255, 0, 0))
+    
+    # Tìm text gần trung tâm nhất
+    min_distance = float('inf')
+    closest_text = None
+    
+    for (bbox, text, conf) in results:
+        # Vẽ tất cả các khung text được phát hiện bằng màu xanh nước biển
+        if save_debug_image:
+            points = [(int(p[0]), int(p[1])) for p in bbox]
+            draw.polygon(points, outline=(0, 0, 255), width=2)
+            # Thêm nhãn text với độ tin cậy
+            label_position = (int(bbox[0][0]), int(bbox[0][1]) - 15)
+            draw.text(label_position, f"{text} ({conf:.2f})", fill=(0, 0, 255))
+        
+        # Tính tọa độ trung tâm của text
+        text_center_x = sum(point[0] for point in bbox) / 4
+        text_center_y = sum(point[1] for point in bbox) / 4
+        
+        # Tính khoảng cách Euclidean từ trung tâm text đến trung tâm khung hình
+        distance = np.sqrt((text_center_x - center_x)**2 + (text_center_y - center_y)**2)
+        
+        print(f"Text: '{text}' | Khoảng cách đến trung tâm: {distance:.1f}px | Confidence: {conf:.2f}")
+        
+        # Lưu text gần nhất
+        if distance < min_distance:
+            min_distance = distance
+            closest_text = (bbox, text, conf)
+    
+    if not closest_text:
+        print("Không tìm được text gần trung tâm")
+        return False
+        
+    # Text được chọn
+    bbox, text, conf = closest_text
+    print(f"Text gần trung tâm nhất: '{text}' | Khoảng cách: {min_distance:.1f}px")
+    
+    # Tính toán hộp giới hạn với mở rộng theo chiều ngang
+    x_min = int(min([point[0] for point in bbox]))
+    y_min = int(min([point[1] for point in bbox]))
+    x_max = int(max([point[0] for point in bbox]))
+    y_max = int(max([point[1] for point in bbox]))
+    
+    # Áp dụng mở rộng theo chiều ngang
+    local_left = max(x_min - expand_width, 0)
+    local_top = y_min
+    local_right = min(x_max + expand_width, rect.width())
+    local_bottom = y_max
+    
+    # Tính tọa độ màn hình tuyệt đối
+    abs_left = rect.left + local_left
+    abs_top = rect.top + local_top
+    abs_right = rect.left + local_right
+    abs_bottom = rect.top + local_bottom
+    
+    # Vẽ hộp text được chọn bằng màu xanh lá cây trên hình ảnh debug
+    if save_debug_image:
+        # Vẽ hộp gốc bằng màu xanh lá cây
+        points = [(int(p[0]), int(p[1])) for p in bbox]
+        draw.polygon(points, outline=(0, 255, 0), width=3)
+        
+        # Vẽ hộp mở rộng bằng màu đỏ
+        draw.rectangle([local_left, local_top, local_right, local_bottom], 
+                     outline=(255, 0, 0), width=2)
+        
+        # Vẽ đường từ trung tâm khung đến trung tâm text
+        text_center_x = sum(point[0] for point in bbox) / 4
+        text_center_y = sum(point[1] for point in bbox) / 4
+        draw.line([(center_x, center_y), (text_center_x, text_center_y)], 
+                 fill=(255, 255, 0), width=2)
+        
+        # Lưu hình ảnh debug
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        debug_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug_images")
+        os.makedirs(debug_dir, exist_ok=True)
+        debug_path = os.path.join(debug_dir, f"subtitle_debug_{timestamp}.png")
+        debug_img.save(debug_path)
+        print(f"Đã lưu hình ảnh debug tại: {debug_path}")
+    
+    # Vẽ hộp chọn bằng cách kéo chuột
+    print(f"Vẽ hộp chọn từ ({abs_left}, {abs_top}) đến ({abs_right}, {abs_bottom})")
+    move(coords=(abs_left, abs_top))
+    press(button='left', coords=(abs_left, abs_top))
+    time.sleep(0.2)
+    move(coords=(abs_right, abs_bottom))
+    time.sleep(0.2)
+    release(button='left', coords=(abs_right, abs_bottom))
+    popup_found = False
+    if main_window is not None:
+        try:
+            # Tìm tất cả control type Dialog có title Thông báo
+            for ctrl in main_window.descendants():
+                try:
+                    if ctrl.friendly_class_name() == "Dialog":
+                        dialog = ctrl
+                        # Tìm các nút thường gặp
+                        for btn_text in ["OK", "Đóng", "Close", "Xác nhận"]:
+                            try:
+                                btn_spec = dialog.child_window(title=btn_text, control_type="Button")
+                                if btn_spec.exists():
+                                    btn = btn_spec.wrapper_object()
+                                    btn.click_input()
+                                    print(f"Đã bấm nút {btn_text} để tắt popup Thông báo.")
+                            except Exception:
+                                continue
+                        # Nếu không có nút, thử đóng dialog
+                        dialog.close()
+                        popup_found = True
+                        print("Đã đóng dialog Thông báo.")
+                except Exception:
+                    continue
+        except Exception as e:
+            log(f"Lỗi khi đóng popup Thông báo: {e}")
 
-    log("Không tìm thấy subtitle ở nửa dưới bằng EasyOCR.")
-    return False
+    if popup_found and expand_width != 20:
+        click_upper_half_of_video_frame(video_frame, main_window)
+        log("Thử lại với width_expand giảm 20")
+        return easyocr_and_drag_subtitle_with_wider_box(rect, expand_width=expand_width-20, main_window=main_window)
+    log("Đã khoanh vùng subtitle nhiều dòng.")
+
+    print("Đã chọn text thành công")
+    return True
+
 def try_drag_slider_and_find_subtitle(video_frame, max_attempts=8, main_window=None):
     """
     Kéo slider ngang với các vị trí khác nhau, sau đó nhận diện subtitle.
