@@ -466,13 +466,6 @@ def extract_combobox_values_from_identifiers(window):
  # Replace with the number you want to find in the voice name
 def select_voice_by_number(window, number):
     dismiss_update_dialog(app)
-    """
-    Select a voice from the combobox by finding an option containing the specified number.
-    
-    Args:
-        window: The window containing the combobox
-        number: A number to look for in the voice name
-    """
     print(f"Selecting voice containing number '{number}' in its name")
     
     try:
@@ -538,76 +531,25 @@ def toggle_hide_old_subtitles(window, check=True):
                     current_state = checkbox.get_toggle_state()
                     print(f"Current state: {'Checked' if current_state == 1 else 'Unchecked'}")
                     
+                    
                     # Toggle if needed
                     if (check and current_state == 0) or (not check and current_state == 1):
-                        checkbox.toggle()
                         print(f"Toggled 'Che sub cũ' checkbox to {'checked' if check else 'unchecked'}")
+                        checkbox.click_input()  # Use click_input to ensure it works with UIA
+                        time.sleep(1)
+                        send_keys("{ENTER}")
+                        
+                        return True  
                     else:
-                        print(f"'Che sub cũ' checkbox already in desired state")
-                    time.sleep(1)  # Wait for the toggle to take effect                        
+                        print(f"'Che sub cũ' checkbox already in desired state")                        
                     return True
             except Exception as e:
                 print(f"Error checking a checkbox: {e}")
-        
-        # Second approach: Look for a label with this text and find a nearby checkbox
-        print("Looking for 'Che sub cũ' label...")
-        all_elements = window.descendants()
-        for element in all_elements:
-            try:
-                text = element.window_text()
-                if "che sub cũ" in text.lower():
-                    print(f"Found element with text: '{text}'")
-                    
-                    # Get element rectangle
-                    element_rect = element.rectangle()
-                    
-                    # Look for a checkbox nearby
-                    for checkbox in checkboxes:
-                        checkbox_rect = checkbox.rectangle()
-                        
-                        # Check if checkbox is near the element (to the left or right)
-                        horizontal_distance = min(
-                            abs(checkbox_rect.right - element_rect.left),
-                            abs(element_rect.right - checkbox_rect.left)
-                        )
-                        vertical_distance = abs(checkbox_rect.top - element_rect.top)
-                        
-                        if horizontal_distance < 50 and vertical_distance < 20:
-                            print("Found checkbox near 'Che sub cũ' label")
-                            
-                            # Check current state
-                            current_state = checkbox.get_toggle_state()
-                            print(f"Current state: {'Checked' if current_state == 1 else 'Unchecked'}")
-                            
-                            # Toggle if needed
-                            if (check and current_state == 0) or (not check and current_state == 1):
-                                checkbox.toggle()
-                                print(f"Toggled checkbox to {'checked' if check else 'unchecked'}")
-                            else:
-                                print("Checkbox already in desired state")
-
-                            return True
-            except Exception:
-                pass
-        
-        print("Không tìm thấy nút 'Chọn' cùng hàng với label 'Đường dẫn video'")
-        return False
     except Exception as e:
-        print(f"Lỗi khi thao tác với nút 'Chọn': {e}")
-        return False
+        print(f"Error finding checkboxes: {e}")
+
 def enter_value_and_click_delete(window, value="10000"):
     dismiss_update_dialog(app)
-    """
-    Find an input field with a delete button to its right,
-    enter a value, and click the delete button.
-    
-    Args:
-        window: The window containing the elements
-        value: The value to enter in the field (default: 10000)
-    
-    Returns:
-        True if successful, False otherwise
-    """
     print(f"Looking for input field with nearby delete button to enter '{value}'")
     
     try:
@@ -707,19 +649,7 @@ def enter_value_and_click_delete(window, value="10000"):
         print(f"Error entering value and clicking delete button: {e}")
         return False
 
-# Example usage in main code:
-
-
 def read_key_value_pairs(file_path):
-    """
-    Read key:value pairs from a text file.
-    
-    Args:
-        file_path: Path to the text file containing key:value pairs
-        
-    Returns:
-        Dictionary of key:value pairs
-    """
     pairs = {}
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
@@ -753,11 +683,7 @@ def scan_directory_for_videos(directory):
         print(f"Error scanning directory {directory}: {e}")
     
     return videos
-def wait_until_output_video_stable(video_filename, stable_checks=3, check_interval=2, timeout=600):
-    """
-    Theo dõi file kết quả cho đến khi kích thước file không đổi trong stable_checks lần liên tiếp.
-    Trả về True nếu file ổn định, False nếu hết timeout.
-    """
+def wait_until_output_video_stable(video_filename, stable_checks=5, check_interval=1, timeout=600):
     log(f"Waiting for output video to stabilize: {video_filename}")
     video_name = clean_filename_for_result(video_filename)
     output_path = os.path.join(
@@ -804,6 +730,8 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
     if not videos:
         print("No videos found, aborting")
         return
+    log("Checking 'Che sub cũ' checkbox")
+    toggle_hide_old_subtitles(window, check=True)
     
     # Process each video
     for video_path in videos:
@@ -856,10 +784,6 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
             continue
         
         dismiss_update_dialog(app)
-        # Check the "Che sub cũ" checkbox
-        log("Checking 'Che sub cũ' checkbox")
-        toggle_hide_old_subtitles(window, check=True)
-        dismiss_update_dialog(app)
         main_window = window
         if main_window is not None:
             try:
@@ -903,7 +827,7 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         dismiss_update_dialog(app)
         
         # Wait between processing videos
-        time.sleep(2)
+        time.sleep(1)
         
         click_start_button(window)
         print("Clicking start button to process video")
@@ -916,9 +840,6 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         close_completion_popup()
         print(f"Completed processing video: {video_filename}")
 def find_video_window(window):
-    """
-    Tìm control con có khả năng là cửa sổ hiển thị video.
-    """
     print("Liệt kê các control để xác định cửa sổ video:")
     window.print_control_identifiers()
 
@@ -941,9 +862,6 @@ def find_video_window(window):
         return None
 
 def highlight_control_with_mouse(control, duration=3):
-    """
-    Di chuyển chuột xung quanh viền control trong thời gian duration (giây).
-    """
     rect = control.rectangle()
     print(f"Highlight control tại: {rect}")
 
@@ -969,10 +887,6 @@ def highlight_control_with_mouse(control, duration=3):
     print("Đã highlight xong control.")
 # Example usage:
 def has_horizontal_scrollbar(control):
-    """
-    Kiểm tra control này hoặc control con của nó có thanh scroll ngang không.
-    """
-    # Kiểm tra trực tiếp control này
     if "ScrollBar" in control.friendly_class_name() or "ScrollBar" in control.class_name():
         # Kiểm tra chiều ngang
         if hasattr(control, "is_horizontal") and control.is_horizontal():
@@ -1810,6 +1724,7 @@ def load_config():
                 input_text.insert(tk.END, "\n".join(lines))
 checking = False
 def start_action():
+    global app, checking
     # Lấy dữ liệu từ GUI
     key_value_lines = input_text.get("1.0", tk.END).strip().splitlines()
     key_value_pairs = {}
@@ -1826,9 +1741,7 @@ def start_action():
         global app, log_text, main_window, checking
         while checking:
             dismiss_update_dialog(app)
-            time.sleep(1)  # Kiểm tra mỗi 5 giây
-    # Chạy kiểm tra cập nhật ở thread khác
-    # Chạy automation ở thread khác để không block GUI
+            time.sleep(0.5)
     def run_automation():
         global app, log_text, main_window, checking
         checking = True
@@ -1849,7 +1762,7 @@ def start_action():
             log("Hoàn thành tự động hóa.")
         except Exception as e:
             log(f"Lỗi: {e}")
-
+    app = None
     threading.Thread(target=run_automation, daemon=True).start()
     threading.Thread(target=run_check_update, daemon=True).start()
 
