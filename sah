@@ -730,8 +730,6 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
     if not videos:
         print("No videos found, aborting")
         return
-    log("Checking 'Che sub cũ' checkbox")
-    toggle_hide_old_subtitles(window, check=True)
     
     # Process each video
     for video_path in videos:
@@ -740,6 +738,8 @@ def process_videos_with_keys(window, key_value_file, video_directory, srt_direct
         video_filename = os.path.basename(video_path)
         video_name_without_ext = os.path.splitext(video_filename)[0]
         log(f"Processing video: {video_filename}")
+        log("Checking 'Che sub cũ' checkbox")
+        toggle_hide_old_subtitles(window, check=True)
         
         # Find corresponding SRT file
         video_filename = os.path.basename(video_path)
